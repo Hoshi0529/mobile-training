@@ -31,7 +31,9 @@ class MainContent extends StatelessWidget {
           ),
         ),
 
-        Expanded(child: Container(color: Colors.grey.shade300)),
+        Expanded(
+          child: Row(children: [Image.asset('assets/images/strong.jpg')]),
+        ),
         Container(
           height: 20,
           padding: EdgeInsets.symmetric(horizontal: 5, vertical: 2),
@@ -42,7 +44,7 @@ class MainContent extends StatelessWidget {
                 child: Padding(
                   child: FittedBox(
                     fit: BoxFit.contain,
-                    child: Text("記録の詳細を見る"),
+                    child: Text("過去のデータの推移"),
                   ),
                   padding: EdgeInsets.all(2),
                 ),
