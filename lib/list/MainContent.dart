@@ -17,7 +17,8 @@ class MainContent extends StatelessWidget {
               child: FittedBox(
                 fit: BoxFit.contain,
                 child: Text(
-                  "〇月×日",
+                  "飲酒日〇月×日"
+                  "午後8時",
                   style: TextStyle(
                     color: Colors.black,
                     decoration: TextDecoration.none,
@@ -39,7 +40,10 @@ class MainContent extends StatelessWidget {
               ElevatedButton(
                 onPressed: () => {onPressed()},
                 child: Padding(
-                  child: FittedBox(fit: BoxFit.contain, child: Text("記録を見る")),
+                  child: FittedBox(
+                    fit: BoxFit.contain,
+                    child: Text("記録の詳細を見る"),
+                  ),
                   padding: EdgeInsets.all(2),
                 ),
                 style: ButtonStyle(
@@ -60,7 +64,7 @@ class MainContent extends StatelessWidget {
                 child: FittedBox(
                   fit: BoxFit.fitHeight,
                   child: Text(
-                    "2021/07/21",
+                    "記入日:2021/07/21",
                     style: TextStyle(
                       color: Colors.black,
                       decoration: TextDecoration.none,

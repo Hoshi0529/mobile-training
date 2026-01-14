@@ -36,7 +36,7 @@ class CouponDetail extends StatelessWidget {
       //  表示するサイズを最小にする
       mainAxisSize: MainAxisSize.min,
       children: [
-        Image.asset('assets/images/c_img.jpg'),
+        Image.asset('assets/images/graph.png'),
         mainCenterContent(),
         mainBottomContent(),
       ],
