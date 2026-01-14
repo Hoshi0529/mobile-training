@@ -32,7 +32,13 @@ class MainContent extends StatelessWidget {
         ),
 
         Expanded(
-          child: Row(children: [Image.asset('assets/images/strong.jpg')]),
+          child: Row(
+            children: [
+              Image.asset('assets/images/strong.jpg'),
+              Image.asset('assets/images/medium.jpg'),
+              Image.asset('assets/images/soft.jpg'),
+            ],
+          ),
         ),
         Container(
           height: 20,
