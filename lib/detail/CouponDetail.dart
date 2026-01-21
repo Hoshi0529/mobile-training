@@ -44,11 +44,7 @@ class CouponDetail extends StatelessWidget {
   }
 
   Widget mainCenterContent() {
-    return Container(
-      margin: EdgeInsets.only(top: 10),
-      height: 80,
-      color: Colors.grey,
-    );
+    return Container(child: Text("あなたの摂取量：多め"));
   }
 
   Widget mainBottomContent() {
