@@ -186,6 +186,15 @@ class HomeScreen extends StatelessWidget {
               );
             },
           ),
+          const SizedBox(height: 24),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20.0),
+            child: ElevatedButton.icon(
+              onPressed: () {},
+              icon: const Icon(Icons.share),
+              label: const Text('Xで記録をシェアする'),
+            ),
+          ),
         ],
       ),
     );
@@ -285,6 +294,7 @@ class RecordScreen extends StatelessWidget {
     );
   }
 }
+
 class SettingScreen extends StatelessWidget {
   const SettingScreen({super.key});
   @override
