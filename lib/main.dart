@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 
+// inside build method:
+final DateTime now = DateTime.now();
+final String formattedDate = "${now.year}年${now.month}月${now.day}日";
+
 void main() {
   runApp(const AlcoholRecordApp());
 }
 
-// アプリの根幹となるウィジェット
 class AlcoholRecordApp extends StatelessWidget {
   const AlcoholRecordApp({super.key});
 
@@ -12,37 +15,32 @@ class AlcoholRecordApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'アルコールレコード',
-      // 夜間や飲酒時でも目に優しいダークテーマを基調とします
-      theme: ThemeData.dark().copyWith(
-        primaryColor: Colors.cyan,
-        scaffoldBackgroundColor: const Color(0xFF0F172A),
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Color(0xFF1E293B),
-          elevation: 0,
-        ),
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.indigo),
+        useMaterial3: true,
+        fontFamily: 'NotoSansJP', // フォント
       ),
-      home: const MainNavigationScreen(),
+      home: const MainScreen(),
+      debugShowCheckedModeBanner: false,
     );
   }
 }
 
-// ボトムナビゲーションバーを管理する画面
-class MainNavigationScreen extends StatefulWidget {
-  const MainNavigationScreen({super.key});
+class MainScreen extends StatefulWidget {
+  const MainScreen({super.key});
 
   @override
-  State<MainNavigationScreen> createState() => _MainNavigationScreenState();
+  State<MainScreen> createState() => _MainScreenState();
 }
 
-class _MainNavigationScreenState extends State<MainNavigationScreen> {
+class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
 
-  // 仕様書に基づく4つのメイン画面のリスト
-  final List<Widget> _pages = [
-    const HomeScreen(),
-    const RecordScreen(),
-    const GraphScreen(),
-    const SettingsScreen(),
+  // タブ切り替えで表示する画面のリスト
+  static const List<Widget> _widgetOptions = <Widget>[
+    HomeScreen(),
+    RecordScreen(),
+    SettingScreen(),
   ];
 
   void _onItemTapped(int index) {
@@ -54,182 +52,243 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _pages[_selectedIndex],
+      appBar: AppBar(
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('アルコールレコード', style: TextStyle(fontSize: 20)),
+            Text(
+              formattedDate,
+              style: TextStyle(fontSize: 12, color: Colors.black),
+            ),
+          ],
+        ),
+      ),
+      body: _widgetOptions.elementAt(_selectedIndex),
       bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        backgroundColor: const Color(0xFF1E293B),
-        currentIndex: _selectedIndex,
-        selectedItemColor: Colors.cyan,
-        unselectedItemColor: Colors.grey,
-        onTap: _onItemTapped,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'ホーム'),
+        items: const <BottomNavigationBarItem>[
+          BottomNavigationBarItem(
+            icon: Icon(Icons.bar_chart_rounded),
+            label: 'データ',
+          ),
           BottomNavigationBarItem(
             icon: Icon(Icons.calendar_month),
             label: '記録',
           ),
-          BottomNavigationBarItem(icon: Icon(Icons.bar_chart), label: '分析'),
-          BottomNavigationBarItem(icon: Icon(Icons.settings), label: '設定'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.settings_outlined),
+            label: '設定',
+          ),
         ],
+        currentIndex: _selectedIndex,
+        selectedItemColor: Theme.of(context).colorScheme.primary,
+        onTap: _onItemTapped,
       ),
     );
   }
 }
 
-/* ==================================================================
-   ここから下は各画面のモック（仮組み）です。
-   開発が進んできたら、HomeScreen.dart のように別ファイルに分割していくと
-   コードが整理され、設計の勉強にもなります。
-   ================================================================== */
-
-// 1. ホーム画面（ダッシュボード）
+/// ホーム画面（グラフと履歴を表示）
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    // 厚生労働省サイトの計算式に基づくモックデータ [cite: 41, 42]
-    // ※ T: 必要な時間 (h), Ag: 純アルコール量 (g) [cite: 43]
-    double currentAlcoholG = 20.0;
-    double timeToSober = currentAlcoholG / 10.0; // 1時間あたり10g分解 [cite: 44]
-
-    return Scaffold(
-      appBar: AppBar(title: const Text('ホーム')),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Text(
-              'ステータス',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ), // [cite: 53]
-            Card(
-              color: const Color(0xFF1E293B),
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const SizedBox(height: 16),
+          // グラフ表示エリア
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: Card(
+              elevation: 2,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
               child: Padding(
-                padding: const EdgeInsets.all(20.0),
+                padding: const EdgeInsets.all(16.0),
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('運転可能になるまで目安'),
-                    const SizedBox(height: 10),
-                    Text(
-                      '約 ${timeToSober.toStringAsFixed(1)} 時間',
-                      style: const TextStyle(
-                        fontSize: 32,
-                        color: Colors.cyan,
+                    const Text(
+                      '今週の摂取量',
+                      style: TextStyle(
+                        fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    const SizedBox(height: 10),
-                    const LinearProgressIndicator(
-                      value: 0.5,
-                      color: Colors.cyan,
+                    const SizedBox(height: 16),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.asset(
+                        'assets/images/graph.png',
+                        height: 200,
+                        width: double.infinity,
+                        fit: BoxFit.contain,
+                        // 画像が見つからない場合のエラーハンドリング
+                        errorBuilder: (context, error, stackTrace) => Container(
+                          height: 200,
+                          color: Colors.grey[200],
+                          child: const Center(
+                            child: Icon(
+                              Icons.show_chart,
+                              size: 64,
+                              color: Colors.grey,
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
                   ],
                 ),
               ),
             ),
-            const SizedBox(height: 20),
-            const Text(
-              'クイック入力',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ), // [cite: 52]
-            const SizedBox(height: 10),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                ElevatedButton.icon(
-                  onPressed: () {},
-                  icon: const Icon(Icons.sports_bar),
-                  label: const Text('ビール'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.cyan,
-                    foregroundColor: Colors.black,
-                  ),
-                ),
-                ElevatedButton.icon(
-                  onPressed: () {},
-                  icon: const Icon(Icons.wine_bar),
-                  label: const Text('ワイン'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.cyan,
-                    foregroundColor: Colors.black,
-                  ),
-                ),
-              ],
+          ),
+          const SizedBox(height: 24),
+          // 履歴リストエリア
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 20.0, vertical: 8.0),
+            child: Text(
+              '最近の記録',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// 2. 記録画面（カレンダー）
-class RecordScreen extends StatelessWidget {
-  const RecordScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('記録・カレンダー')),
-      body: const Center(
-        child: Text('ここに table_calendar パッケージを導入します'), // [cite: 88]
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {},
-        backgroundColor: Colors.cyan,
-        child: const Icon(
-          Icons.add,
-          color: Colors.black,
-        ), // 通常入力用ボタン [cite: 57]
-      ),
-    );
-  }
-}
-
-// 3. 分析画面（グラフ）
-class GraphScreen extends StatelessWidget {
-  const GraphScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('分析')),
-      body: const Center(
-        child: Text('ここに fl_chart パッケージで週次グラフを描画します'), // [cite: 38, 87]
-      ),
-    );
-  }
-}
-
-// 4. 設定画面
-class SettingsScreen extends StatelessWidget {
-  const SettingsScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('設定')),
-      body: ListView(
-        children: const [
-          ListTile(
-            leading: Icon(Icons.person),
-            title: Text('個人データ（体重・体質係数）'), // [cite: 46]
-            trailing: Icon(Icons.chevron_right),
           ),
-          ListTile(
-            leading: Icon(Icons.notifications),
-            title: Text('休肝日リマインド設定'), // [cite: 62]
-            trailing: Icon(Icons.chevron_right),
-          ),
-          ListTile(
-            leading: Icon(Icons.warning),
-            title: Text('1日の許容量設定'), // [cite: 74]
-            trailing: Icon(Icons.chevron_right),
+          ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: 3,
+            itemBuilder: (context, index) {
+              return ListTile(
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 4,
+                ),
+                leading: CircleAvatar(
+                  backgroundColor: Theme.of(
+                    context,
+                  ).colorScheme.secondaryContainer,
+                  child: Icon(
+                    Icons.local_drink,
+                    color: Theme.of(context).colorScheme.onSecondaryContainer,
+                  ),
+                ),
+                title: Text(
+                  index == 0 ? 'ビール' : (index == 1 ? 'カクテル' : '日本酒'),
+                  style: const TextStyle(fontWeight: FontWeight.w500),
+                ),
+                subtitle: Text('350ml • アルコール 5%'),
+                trailing: Text(
+                  index == 0 ? '今日' : '${index}日前',
+                  style: const TextStyle(color: Colors.grey),
+                ),
+              );
+            },
           ),
         ],
       ),
     );
+  }
+}
+
+/// 記録画面（お酒のカテゴリから選ぶ画面）
+class RecordScreen extends StatelessWidget {
+  const RecordScreen({super.key});
+
+  final List<Map<String, String>> categories = const [
+    {'title': 'ソフト', 'image': 'assets/images/soft.jpg'},
+    {'title': 'ミディアム', 'image': 'assets/images/medium.jpg'},
+    {'title': 'ストロング', 'image': 'assets/images/strong.jpg'},
+    {'title': 'カクテル', 'image': 'assets/images/cocktail.jpg'},
+    {'title': 'その他', 'image': 'assets/images/c_img.jpg'},
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            '何を飲みましたか？',
+            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 16),
+          Expanded(
+            child: GridView.builder(
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2, // 2列で表示
+                crossAxisSpacing: 16,
+                mainAxisSpacing: 16,
+                childAspectRatio: 0.85, // カードの縦横比
+              ),
+              itemCount: categories.length,
+              itemBuilder: (context, index) {
+                final category = categories[index];
+                return Card(
+                  clipBehavior: Clip.antiAlias,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  elevation: 2,
+                  child: InkWell(
+                    onTap: () {
+                      // 記録アクションのモック
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('${category['title']} を記録しました！'),
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                    },
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Expanded(
+                          flex: 3,
+                          child: Image.asset(
+                            category['image']!,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) =>
+                                Container(
+                                  color: Colors.grey[200],
+                                  child: const Icon(
+                                    Icons.image_not_supported,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                          ),
+                        ),
+                        Expanded(
+                          flex: 1,
+                          child: Center(
+                            child: Text(
+                              category['title']!,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+class SettingScreen extends StatelessWidget {
+  const SettingScreen({super.key});
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView();
   }
 }
