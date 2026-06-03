@@ -210,7 +210,7 @@ class RecordScreen extends StatelessWidget {
     {'title': 'ミディアム', 'image': 'assets/images/medium.jpg'},
     {'title': 'ストロング', 'image': 'assets/images/strong.jpg'},
     {'title': 'カクテル', 'image': 'assets/images/cocktail.jpg'},
-    {'title': 'その他', 'image': 'assets/images/c_img.jpg'},
+    {'title': 'その他', 'image': 'assets/images/cocktail.jpg'},
   ];
 
   @override
