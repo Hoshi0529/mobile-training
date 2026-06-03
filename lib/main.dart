@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-
-// inside build method:
-final DateTime now = DateTime.now();
-final String formattedDate = "${now.year}年${now.month}月${now.day}日";
+// 分割した画面ファイルをインポートします
+import 'screens/home.dart';
+import 'screens/add.dart';
+import 'screens/setting.dart';
+import 'screens/record.dart';
 
 void main() {
   runApp(const AlcoholRecordApp());
@@ -36,7 +37,7 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
 
-  // タブ切り替えで表示する画面のリスト
+  // タブ切り替えで表示する画面のリスト（外部ファイルのクラスを使用）
   static const List<Widget> _widgetOptions = <Widget>[
     HomeScreen(),
     RecordScreen(),
@@ -51,20 +52,70 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final DateTime now = DateTime.now();
+    final String formattedDate = "${now.year}年${now.month}月${now.day}日";
+
     return Scaffold(
       appBar: AppBar(
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('アルコールレコード', style: TextStyle(fontSize: 20)),
+            const Text('アルコールレコード', style: TextStyle(fontSize: 20)),
             Text(
               formattedDate,
-              style: TextStyle(fontSize: 12, color: Colors.black),
+              style: const TextStyle(fontSize: 12, color: Colors.black),
             ),
           ],
         ),
       ),
       body: _widgetOptions.elementAt(_selectedIndex),
+
+      floatingActionButtonLocation: FloatingActionButtonLocation.startFloat,
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          // ==========================================
+          // ここを追加：ボトムシートを表示する処理
+          // ==========================================
+          showModalBottomSheet(
+            context: context,
+            isScrollControlled: true, // 高さを自由に調整できるようにする設定
+            shape: const RoundedRectangleBorder(
+              // 画像のように上部の角を丸くする
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            builder: (BuildContext context) {
+              return SizedBox(
+                // 画面の高さの約70%のサイズで表示する
+                height: MediaQuery.of(context).size.height * 0.7,
+                child: Column(
+                  children: [
+                    // ボトムシート上部のつまみ（デザイン的なアクセント）
+                    Container(
+                      margin: const EdgeInsets.symmetric(vertical: 12),
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[400],
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    // AddScreenを表示（Expandedで残りの高さを埋める）
+                    const Expanded(child: AddScreen()),
+                  ],
+                ),
+              );
+            },
+          );
+        },
+        icon: const Icon(Icons.add_circle),
+        label: const Text(
+          '新しい記録を追加',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+      ),
+
       bottomNavigationBar: BottomNavigationBar(
         items: const <BottomNavigationBarItem>[
           BottomNavigationBarItem(
@@ -85,220 +136,5 @@ class _MainScreenState extends State<MainScreen> {
         onTap: _onItemTapped,
       ),
     );
-  }
-}
-
-/// ホーム画面（グラフと履歴を表示）
-class HomeScreen extends StatelessWidget {
-  const HomeScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const SizedBox(height: 16),
-          // グラフ表示エリア
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: Card(
-              elevation: 2,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      '今週の摂取量',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: Image.asset(
-                        'assets/images/graph.png',
-                        height: 200,
-                        width: double.infinity,
-                        fit: BoxFit.contain,
-                        // 画像が見つからない場合のエラーハンドリング
-                        errorBuilder: (context, error, stackTrace) => Container(
-                          height: 200,
-                          color: Colors.grey[200],
-                          child: const Center(
-                            child: Icon(
-                              Icons.show_chart,
-                              size: 64,
-                              color: Colors.grey,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 24),
-          // 履歴リストエリア
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 20.0, vertical: 8.0),
-            child: Text(
-              '最近の記録',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-          ),
-          ListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: 3,
-            itemBuilder: (context, index) {
-              return ListTile(
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 4,
-                ),
-                leading: CircleAvatar(
-                  backgroundColor: Theme.of(
-                    context,
-                  ).colorScheme.secondaryContainer,
-                  child: Icon(
-                    Icons.local_drink,
-                    color: Theme.of(context).colorScheme.onSecondaryContainer,
-                  ),
-                ),
-                title: Text(
-                  index == 0 ? 'ビール' : (index == 1 ? 'カクテル' : '日本酒'),
-                  style: const TextStyle(fontWeight: FontWeight.w500),
-                ),
-                subtitle: Text('350ml • アルコール 5%'),
-                trailing: Text(
-                  index == 0 ? '今日' : '${index}日前',
-                  style: const TextStyle(color: Colors.grey),
-                ),
-              );
-            },
-          ),
-          const SizedBox(height: 24),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20.0),
-            child: ElevatedButton.icon(
-              onPressed: () {},
-              icon: const Icon(Icons.share),
-              label: const Text('Xで記録をシェアする'),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// 記録画面（お酒のカテゴリから選ぶ画面）
-class RecordScreen extends StatelessWidget {
-  const RecordScreen({super.key});
-
-  final List<Map<String, String>> categories = const [
-    {'title': 'ソフト', 'image': 'assets/images/soft.jpg'},
-    {'title': 'ミディアム', 'image': 'assets/images/medium.jpg'},
-    {'title': 'ストロング', 'image': 'assets/images/strong.jpg'},
-    {'title': 'カクテル', 'image': 'assets/images/cocktail.jpg'},
-    {'title': 'その他', 'image': 'assets/images/cocktail.jpg'},
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            '何を飲みましたか？',
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 16),
-          Expanded(
-            child: GridView.builder(
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2, // 2列で表示
-                crossAxisSpacing: 16,
-                mainAxisSpacing: 16,
-                childAspectRatio: 0.85, // カードの縦横比
-              ),
-              itemCount: categories.length,
-              itemBuilder: (context, index) {
-                final category = categories[index];
-                return Card(
-                  clipBehavior: Clip.antiAlias,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  elevation: 2,
-                  child: InkWell(
-                    onTap: () {
-                      // 記録アクションのモック
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('${category['title']} を記録しました！'),
-                          behavior: SnackBarBehavior.floating,
-                        ),
-                      );
-                    },
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Expanded(
-                          flex: 3,
-                          child: Image.asset(
-                            category['image']!,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) =>
-                                Container(
-                                  color: Colors.grey[200],
-                                  child: const Icon(
-                                    Icons.image_not_supported,
-                                    color: Colors.grey,
-                                  ),
-                                ),
-                          ),
-                        ),
-                        Expanded(
-                          flex: 1,
-                          child: Center(
-                            child: Text(
-                              category['title']!,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class SettingScreen extends StatelessWidget {
-  const SettingScreen({super.key});
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView();
   }
 }
