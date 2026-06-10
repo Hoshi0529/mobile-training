@@ -1,133 +1,319 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../data/menu.dart';
 
-/// ホーム画面（グラフと最近の記録を表示）。
+/// ホーム画面（現在の体内アルコール量と今日の記録を表示）。
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
+  static const double _metabolismGramsPerHour = 5.0;
+  static const double _caloriesPerAlcoholGram = 8.5;
+
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const SizedBox(height: 16),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: Card(
-              elevation: 2,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
+    return ValueListenableBuilder<List<Map<String, dynamic>>>(
+      valueListenable: globalDrinkRecordsNotifier,
+      builder: (context, records, child) {
+        final todayRecords = _todayRecords(records);
+        final bodyAlcohol = _currentBodyAlcohol(records);
+        final minutesUntilClear = _minutesUntilClear(bodyAlcohol);
+        final todayCalories = _totalCalories(todayRecords);
+
+        return SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const SizedBox(height: 16),
+              _buildAlcoholStatusCard(
+                minutesUntilClear: minutesUntilClear,
+                bodyAlcohol: bodyAlcohol,
               ),
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      '今週の摂取量',
+              const SizedBox(height: 24),
+              _buildTodayHeader(todayCalories),
+              _buildTodayRecords(context, todayRecords),
+              const SizedBox(height: 100),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildAlcoholStatusCard({
+    required int minutesUntilClear,
+    required double bodyAlcohol,
+  }) {
+    final hours = minutesUntilClear ~/ 60;
+    final minutes = minutesUntilClear % 60;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      child: Card(
+        elevation: 2,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.directions_car, color: Colors.orange[700]),
+                  const SizedBox(width: 8),
+                  const Text(
+                    '運転可能目安まで',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    '$hours',
+                    style: const TextStyle(
+                      fontSize: 42,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: 8),
+                    child: Text(
+                      '時間',
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: Image.asset(
-                        'assets/images/graph.png',
-                        height: 200,
-                        width: double.infinity,
-                        fit: BoxFit.contain,
-                        errorBuilder: (context, error, stackTrace) => Container(
-                          height: 200,
-                          color: Colors.grey[200],
-                          child: const Center(
-                            child: Icon(
-                              Icons.show_chart,
-                              size: 64,
-                              color: Colors.grey,
-                            ),
-                          ),
-                        ),
+                  ),
+                  Text(
+                    '$minutes',
+                    style: const TextStyle(
+                      fontSize: 42,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: 8),
+                    child: Text(
+                      '分',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      '現在の体内アルコール量',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '${bodyAlcohol.toStringAsFixed(1)} g',
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
                   ],
                 ),
               ),
-            ),
+            ],
           ),
-          const SizedBox(height: 24),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 20.0, vertical: 8.0),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTodayHeader(int todayCalories) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 8.0),
+      child: Row(
+        children: [
+          const Expanded(
             child: Text(
-              '最近の記録',
+              '今日の記録',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
           ),
-          ValueListenableBuilder<List<Map<String, dynamic>>>(
-            valueListenable: globalDrinkRecordsNotifier,
-            builder: (context, records, child) {
-              if (records.isEmpty) {
-                return const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                  child: Text(
-                    'まだ記録がありません',
-                    style: TextStyle(color: Colors.grey),
+          Text.rich(
+            TextSpan(
+              children: [
+                const TextSpan(
+                  text: '摂取カロリー: ',
+                  style: TextStyle(
+                    color: Colors.grey,
+                    fontWeight: FontWeight.bold,
                   ),
-                );
-              }
-
-              final itemCount = records.length < 3 ? records.length : 3;
-              return ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: itemCount,
-                itemBuilder: (context, index) {
-                  final record = records[index];
-                  final icon = record['icon'] as IconData;
-                  final name = record['name'].toString();
-                  final volume = record['volume'];
-                  final abv = _asDouble(record['abv']);
-                  final alcoholGrams = _asDouble(record['alcoholGrams']);
-
-                  return ListTile(
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 4,
-                    ),
-                    leading: CircleAvatar(
-                      backgroundColor: Theme.of(
-                        context,
-                      ).colorScheme.secondaryContainer,
-                      child: Icon(
-                        icon,
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.onSecondaryContainer,
-                      ),
-                    ),
-                    title: Text(
-                      name,
-                      style: const TextStyle(fontWeight: FontWeight.w500),
-                    ),
-                    subtitle: Text(
-                      '${volume}ml • アルコール ${_formatNumber(abv)}% • ${alcoholGrams.toStringAsFixed(1)}g',
-                    ),
-                    trailing: Text(
-                      _formatDateLabel(record['recordedAt']),
-                      style: const TextStyle(color: Colors.grey),
-                    ),
-                  );
-                },
-              );
-            },
+                ),
+                TextSpan(
+                  text: '$todayCalories',
+                  style: TextStyle(
+                    color: Colors.orange[700],
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const TextSpan(
+                  text: ' kcal',
+                  style: TextStyle(
+                    color: Colors.grey,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 100),
         ],
       ),
     );
+  }
+
+  Widget _buildTodayRecords(
+    BuildContext context,
+    List<Map<String, dynamic>> todayRecords,
+  ) {
+    if (todayRecords.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        child: Text('まだ今日の記録がありません', style: TextStyle(color: Colors.grey)),
+      );
+    }
+
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: todayRecords.length,
+      itemBuilder: (context, index) {
+        final record = todayRecords[index];
+        final name = record['name'].toString();
+        final volume = record['volume'];
+        final abv = _asDouble(record['abv']);
+        final alcoholGrams = _asDouble(record['alcoholGrams']);
+        final calories = _calories(alcoholGrams);
+        final recordedAt = record['recordedAt'];
+
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 6.0),
+          child: Card(
+            elevation: 1,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: BorderSide(color: Colors.grey.shade100),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          name,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          '${_formatTime(recordedAt)} • ${volume}ml • ${_formatNumber(abv)}%',
+                          style: const TextStyle(color: Colors.grey),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      _buildBadge(
+                        '${alcoholGrams.toStringAsFixed(1)}g',
+                        Colors.blue,
+                      ),
+                      const SizedBox(height: 6),
+                      _buildBadge('$calories kcal', Colors.orange),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildBadge(String text, MaterialColor color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(color: color[700], fontWeight: FontWeight.bold),
+      ),
+    );
+  }
+
+  static List<Map<String, dynamic>> _todayRecords(
+    List<Map<String, dynamic>> records,
+  ) {
+    final now = DateTime.now();
+    return records.where((record) {
+      final recordedAt = record['recordedAt'];
+      return recordedAt is DateTime && DateUtils.isSameDay(recordedAt, now);
+    }).toList();
+  }
+
+  static double _currentBodyAlcohol(List<Map<String, dynamic>> records) {
+    final now = DateTime.now();
+    return records.fold<double>(0, (sum, record) {
+      final recordedAt = record['recordedAt'];
+      if (recordedAt is! DateTime) {
+        return sum;
+      }
+
+      final alcoholGrams = _asDouble(record['alcoholGrams']);
+      final elapsedHours = now.difference(recordedAt).inMinutes / 60;
+      final remaining = alcoholGrams - (elapsedHours * _metabolismGramsPerHour);
+      return sum + math.max(remaining, 0);
+    });
+  }
+
+  static int _minutesUntilClear(double bodyAlcohol) {
+    if (bodyAlcohol <= 0) {
+      return 0;
+    }
+    return (bodyAlcohol / _metabolismGramsPerHour * 60).ceil();
+  }
+
+  static int _totalCalories(List<Map<String, dynamic>> records) {
+    return records.fold<int>(0, (sum, record) {
+      return sum + _calories(_asDouble(record['alcoholGrams']));
+    });
+  }
+
+  static int _calories(double alcoholGrams) {
+    return (alcoholGrams * _caloriesPerAlcoholGram).round();
   }
 
   static double _asDouble(dynamic value) {
@@ -141,17 +327,13 @@ class HomeScreen extends StatelessWidget {
     return value == value.toInt() ? value.toInt().toString() : value.toString();
   }
 
-  static String _formatDateLabel(dynamic value) {
+  static String _formatTime(dynamic value) {
     if (value is! DateTime) {
       return '';
     }
 
-    final now = DateTime.now();
-    if (DateUtils.isSameDay(value, now)) {
-      return '今日';
-    }
-
-    final days = now.difference(value).inDays;
-    return '$days日前';
+    final hour = value.hour.toString().padLeft(2, '0');
+    final minute = value.minute.toString().padLeft(2, '0');
+    return '$hour:$minute';
   }
 }
