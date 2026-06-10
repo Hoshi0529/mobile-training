@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
-import '../data/menu.dart'; // 共有データをインポート
+import 'package:flutter/services.dart';
 
-/// 新しい記録を追加する画面（ボトムシートの中身）
+import '../data/menu.dart';
+
+/// 新しい飲酒記録を追加する画面（ボトムシートの中身）。
 class AddScreen extends StatefulWidget {
   const AddScreen({super.key});
 
@@ -10,8 +12,21 @@ class AddScreen extends StatefulWidget {
 }
 
 class _AddScreenState extends State<AddScreen> {
-  // タブの選択状態（0: 定番, 1: 手動入力）
+  final _manualFormKey = GlobalKey<FormState>();
+  final _nameController = TextEditingController();
+  final _volumeController = TextEditingController();
+  final _abvController = TextEditingController();
+
+  // タブの選択状態。0: 定番, 1: 手入力
   int _selectedTabIndex = 0;
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _volumeController.dispose();
+    _abvController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -25,8 +40,6 @@ class _AddScreenState extends State<AddScreen> {
             style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 16),
-
-          // 週間 / 月間 のような切り替えスイッチ（定番 / 手動入力）
           Container(
             height: 48,
             decoration: BoxDecoration(
@@ -34,22 +47,19 @@ class _AddScreenState extends State<AddScreen> {
               borderRadius: BorderRadius.circular(12),
             ),
             padding: const EdgeInsets.all(4),
-            child: Row(children: [_buildTab('定番', 0), _buildTab('手動入力', 1)]),
+            child: Row(children: [_buildTab('定番', 0), _buildTab('手入力', 1)]),
           ),
           const SizedBox(height: 20),
-
-          // タブの中身（定番リスト）
           Expanded(
             child: _selectedTabIndex == 0
-                ? _buildTeibanGrid()
-                : const Center(child: Text('手動入力フォームがここに入ります')),
+                ? _buildMenuGrid()
+                : _buildManualForm(),
           ),
         ],
       ),
     );
   }
 
-  // 定番・手動入力タブを生成
   Widget _buildTab(String text, int index) {
     final isSelected = _selectedTabIndex == index;
     return Expanded(
@@ -66,7 +76,7 @@ class _AddScreenState extends State<AddScreen> {
             boxShadow: isSelected
                 ? [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
+                      color: Colors.black.withValues(alpha: 0.05),
                       blurRadius: 4,
                       offset: const Offset(0, 2),
                     ),
@@ -86,10 +96,8 @@ class _AddScreenState extends State<AddScreen> {
     );
   }
 
-  // 共有データを監視してグリッド表示する部分
-  Widget _buildTeibanGrid() {
+  Widget _buildMenuGrid() {
     return ValueListenableBuilder<List<Map<String, dynamic>>>(
-      // ここで menu_data.dart に定義した globalMenuItemsNotifier を監視しています
       valueListenable: globalMenuItemsNotifier,
       builder: (context, menuItems, child) {
         if (menuItems.isEmpty) {
@@ -103,14 +111,19 @@ class _AddScreenState extends State<AddScreen> {
 
         return GridView.builder(
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2, // 2列
+            crossAxisCount: 2,
             crossAxisSpacing: 16,
             mainAxisSpacing: 16,
-            childAspectRatio: 1.4, // カードの縦横比（少し横長）
+            childAspectRatio: 1.4,
           ),
           itemCount: menuItems.length,
           itemBuilder: (context, index) {
             final item = menuItems[index];
+            final name = item['name'].toString();
+            final volume = item['volume'] as int;
+            final abv = item['abv'] as double;
+            final icon = item['icon'] as IconData;
+
             return Card(
               elevation: 0,
               shape: RoundedRectangleBorder(
@@ -119,16 +132,12 @@ class _AddScreenState extends State<AddScreen> {
               ),
               child: InkWell(
                 borderRadius: BorderRadius.circular(16),
-                onTap: () {
-                  // ここに記録処理を書く（今はトースト表示）
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('${item['name']} を記録しました！'),
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
-                  Navigator.pop(context); // ボトムシートを閉じる
-                },
+                onTap: () => _recordDrink(
+                  name: name,
+                  volume: volume,
+                  abv: abv,
+                  icon: icon,
+                ),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -138,11 +147,11 @@ class _AddScreenState extends State<AddScreen> {
                         shape: BoxShape.circle,
                         border: Border.all(color: Colors.grey.shade300),
                       ),
-                      child: Icon(item['icon'], color: Colors.blueGrey[700]),
+                      child: Icon(icon, color: Colors.blueGrey[700]),
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      item['name'],
+                      name,
                       style: const TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
@@ -159,5 +168,203 @@ class _AddScreenState extends State<AddScreen> {
         );
       },
     );
+  }
+
+  Widget _buildManualForm() {
+    final alcoholGrams = _calculateManualAlcoholGrams();
+
+    return Form(
+      key: _manualFormKey,
+      child: ListView(
+        padding: const EdgeInsets.only(bottom: 20),
+        children: [
+          _buildLabel('名前'),
+          _buildTextField(
+            controller: _nameController,
+            hintText: '例: グラスワイン',
+            validator: (value) {
+              if (value == null || value.trim().isEmpty) {
+                return '名前を入力してください';
+              }
+              return null;
+            },
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildLabel('量 (ml)'),
+                    _buildTextField(
+                      controller: _volumeController,
+                      hintText: '120',
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      validator: (value) {
+                        final volume = int.tryParse(value?.trim() ?? '');
+                        if (volume == null || volume <= 0) {
+                          return '1以上';
+                        }
+                        return null;
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildLabel('度数 (%)'),
+                    _buildTextField(
+                      controller: _abvController,
+                      hintText: '12',
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      validator: (value) {
+                        final abv = double.tryParse(value?.trim() ?? '');
+                        if (abv == null || abv <= 0) {
+                          return '1以上';
+                        }
+                        return null;
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.blueGrey[50],
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.blueGrey.shade100),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  '純アルコール量',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+                Text(
+                  '${alcoholGrams.toStringAsFixed(1)}g',
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+          SizedBox(
+            height: 48,
+            child: ElevatedButton.icon(
+              onPressed: _submitManualRecord,
+              icon: const Icon(Icons.check_circle_outline),
+              label: const Text(
+                '記録する',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.black,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLabel(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Text(
+        text,
+        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+      ),
+    );
+  }
+
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String hintText,
+    TextInputType? keyboardType,
+    List<TextInputFormatter>? inputFormatters,
+    String? Function(String?)? validator,
+  }) {
+    return TextFormField(
+      controller: controller,
+      keyboardType: keyboardType,
+      inputFormatters: inputFormatters,
+      validator: validator,
+      onChanged: (_) => setState(() {}),
+      decoration: InputDecoration(
+        hintText: hintText,
+        filled: true,
+        fillColor: Colors.grey[50],
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 12,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: Colors.blue.shade300, width: 2),
+        ),
+        errorMaxLines: 1,
+      ),
+    );
+  }
+
+  double _calculateManualAlcoholGrams() {
+    final volume = int.tryParse(_volumeController.text.trim()) ?? 0;
+    final abv = double.tryParse(_abvController.text.trim()) ?? 0;
+    return volume * abv / 100 * 0.8;
+  }
+
+  void _submitManualRecord() {
+    if (!_manualFormKey.currentState!.validate()) {
+      return;
+    }
+
+    _recordDrink(
+      name: _nameController.text.trim(),
+      volume: int.parse(_volumeController.text.trim()),
+      abv: double.parse(_abvController.text.trim()),
+      icon: Icons.edit_note_outlined,
+    );
+  }
+
+  void _recordDrink({
+    required String name,
+    required int volume,
+    required double abv,
+    required IconData icon,
+  }) {
+    addDrinkRecord(name: name, volume: volume, abv: abv, icon: icon);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('$name を記録しました'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+
+    Navigator.of(context).maybePop();
   }
 }

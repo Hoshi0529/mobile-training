@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../data/menu.dart';
+
 /// 新しい記録画面（グラフやサマリーを表示）
 class RecordScreen extends StatefulWidget {
   const RecordScreen({super.key});
@@ -25,10 +27,7 @@ class _RecordScreenState extends State<RecordScreen> {
             // タイトル
             const Text(
               '記録',
-              style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 20),
 
@@ -41,10 +40,7 @@ class _RecordScreenState extends State<RecordScreen> {
               ),
               padding: const EdgeInsets.all(4),
               child: Row(
-                children: [
-                  _buildPeriodTab('週間', 0),
-                  _buildPeriodTab('月間', 1),
-                ],
+                children: [_buildPeriodTab('週間', 0), _buildPeriodTab('月間', 1)],
               ),
             ),
             const SizedBox(height: 24),
@@ -65,7 +61,8 @@ class _RecordScreenState extends State<RecordScreen> {
                     Row(
                       children: [
                         GestureDetector(
-                          onTap: () => setState(() => _selectedChartDataType = 0),
+                          onTap: () =>
+                              setState(() => _selectedChartDataType = 0),
                           child: Text(
                             'アルコール量',
                             style: TextStyle(
@@ -80,10 +77,14 @@ class _RecordScreenState extends State<RecordScreen> {
                         ),
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                          child: Text('|', style: TextStyle(color: Colors.grey[300])),
+                          child: Text(
+                            '|',
+                            style: TextStyle(color: Colors.grey[300]),
+                          ),
                         ),
                         GestureDetector(
-                          onTap: () => setState(() => _selectedChartDataType = 1),
+                          onTap: () =>
+                              setState(() => _selectedChartDataType = 1),
                           child: Text(
                             'カロリー',
                             style: TextStyle(
@@ -99,18 +100,28 @@ class _RecordScreenState extends State<RecordScreen> {
                       ],
                     ),
                     const SizedBox(height: 12),
-                    
+
                     // 数値表示
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.baseline,
                       textBaseline: TextBaseline.alphabetic,
                       children: [
-                        Text(
-                          _selectedChartDataType == 0 ? '0.0' : '0',
-                          style: const TextStyle(
-                            fontSize: 32,
-                            fontWeight: FontWeight.bold,
-                          ),
+                        ValueListenableBuilder<List<Map<String, dynamic>>>(
+                          valueListenable: globalDrinkRecordsNotifier,
+                          builder: (context, records, child) {
+                            final totalAlcohol = _totalAlcohol(records);
+                            final value = _selectedChartDataType == 0
+                                ? totalAlcohol.toStringAsFixed(1)
+                                : (totalAlcohol * 7).round().toString();
+
+                            return Text(
+                              value,
+                              style: const TextStyle(
+                                fontSize: 32,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            );
+                          },
                         ),
                         const SizedBox(width: 4),
                         Text(
@@ -134,11 +145,15 @@ class _RecordScreenState extends State<RecordScreen> {
                           Column(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: ['4', '3', '2', '1', '0']
-                                .map((e) => Text(
-                                      e,
-                                      style: TextStyle(
-                                          color: Colors.grey[400], fontSize: 12),
-                                    ))
+                                .map(
+                                  (e) => Text(
+                                    e,
+                                    style: TextStyle(
+                                      color: Colors.grey[400],
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                )
                                 .toList(),
                           ),
                           const SizedBox(width: 16),
@@ -152,14 +167,18 @@ class _RecordScreenState extends State<RecordScreen> {
                                 ),
                                 // X軸
                                 Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
                                   children: ['木', '金', '土', '日', '月', '火', '水']
-                                      .map((e) => Text(
-                                            e,
-                                            style: TextStyle(
-                                                color: Colors.grey[400],
-                                                fontSize: 12),
-                                          ))
+                                      .map(
+                                        (e) => Text(
+                                          e,
+                                          style: TextStyle(
+                                            color: Colors.grey[400],
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                      )
                                       .toList(),
                                 ),
                               ],
@@ -180,7 +199,7 @@ class _RecordScreenState extends State<RecordScreen> {
                 // 休肝日達成カード
                 Expanded(
                   child: _buildSummaryCard(
-                    title: '休肝日達成',
+                    title: '未摂取日',
                     value: '7',
                     unit: '日',
                     backgroundColor: const Color(0xFFE8F6F0), // 薄い緑
@@ -200,13 +219,23 @@ class _RecordScreenState extends State<RecordScreen> {
                 ),
               ],
             ),
-            
+
             // 下部のFloatingActionButtonに被らないように余白を追加
             const SizedBox(height: 80),
           ],
         ),
       ),
     );
+  }
+
+  double _totalAlcohol(List<Map<String, dynamic>> records) {
+    return records.fold<double>(0, (sum, record) {
+      final value = record['alcoholGrams'];
+      if (value is num) {
+        return sum + value.toDouble();
+      }
+      return sum + (double.tryParse(value.toString()) ?? 0);
+    });
   }
 
   // 週間/月間タブを生成するヘルパーメソッド
@@ -226,10 +255,10 @@ class _RecordScreenState extends State<RecordScreen> {
             boxShadow: isSelected
                 ? [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
+                      color: Colors.black.withValues(alpha: 0.05),
                       blurRadius: 4,
                       offset: const Offset(0, 2),
-                    )
+                    ),
                   ]
                 : [],
           ),
@@ -285,13 +314,7 @@ class _RecordScreenState extends State<RecordScreen> {
                 ),
               ),
               const SizedBox(width: 4),
-              Text(
-                unit,
-                style: TextStyle(
-                  color: textColor,
-                  fontSize: 14,
-                ),
-              ),
+              Text(unit, style: TextStyle(color: textColor, fontSize: 14)),
             ],
           ),
         ],

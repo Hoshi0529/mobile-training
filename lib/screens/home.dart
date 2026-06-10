@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
-/// ホーム画面（グラフと履歴を表示）
+import '../data/menu.dart';
+
+/// ホーム画面（グラフと最近の記録を表示）。
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
@@ -11,7 +13,6 @@ class HomeScreen extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const SizedBox(height: 16),
-          // グラフ表示エリア
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
             child: Card(
@@ -58,7 +59,6 @@ class HomeScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 24),
-          // 履歴リストエリア
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 20.0, vertical: 8.0),
             child: Text(
@@ -66,41 +66,92 @@ class HomeScreen extends StatelessWidget {
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
           ),
-          ListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: 3,
-            itemBuilder: (context, index) {
-              return ListTile(
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 4,
-                ),
-                leading: CircleAvatar(
-                  backgroundColor: Theme.of(
-                    context,
-                  ).colorScheme.secondaryContainer,
-                  child: Icon(
-                    Icons.local_drink,
-                    color: Theme.of(context).colorScheme.onSecondaryContainer,
+          ValueListenableBuilder<List<Map<String, dynamic>>>(
+            valueListenable: globalDrinkRecordsNotifier,
+            builder: (context, records, child) {
+              if (records.isEmpty) {
+                return const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  child: Text(
+                    'まだ記録がありません',
+                    style: TextStyle(color: Colors.grey),
                   ),
-                ),
-                title: Text(
-                  index == 0 ? 'ビール' : (index == 1 ? 'カクテル' : '日本酒'),
-                  style: const TextStyle(fontWeight: FontWeight.w500),
-                ),
-                subtitle: const Text('350ml • アルコール 5%'),
-                trailing: Text(
-                  index == 0 ? '今日' : '${index}日前',
-                  style: const TextStyle(color: Colors.grey),
-                ),
+                );
+              }
+
+              final itemCount = records.length < 3 ? records.length : 3;
+              return ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: itemCount,
+                itemBuilder: (context, index) {
+                  final record = records[index];
+                  final icon = record['icon'] as IconData;
+                  final name = record['name'].toString();
+                  final volume = record['volume'];
+                  final abv = _asDouble(record['abv']);
+                  final alcoholGrams = _asDouble(record['alcoholGrams']);
+
+                  return ListTile(
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 4,
+                    ),
+                    leading: CircleAvatar(
+                      backgroundColor: Theme.of(
+                        context,
+                      ).colorScheme.secondaryContainer,
+                      child: Icon(
+                        icon,
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.onSecondaryContainer,
+                      ),
+                    ),
+                    title: Text(
+                      name,
+                      style: const TextStyle(fontWeight: FontWeight.w500),
+                    ),
+                    subtitle: Text(
+                      '${volume}ml • アルコール ${_formatNumber(abv)}% • ${alcoholGrams.toStringAsFixed(1)}g',
+                    ),
+                    trailing: Text(
+                      _formatDateLabel(record['recordedAt']),
+                      style: const TextStyle(color: Colors.grey),
+                    ),
+                  );
+                },
               );
             },
           ),
-          // 左下の固定ボタンにリストが隠れないように余白を追加
-          const SizedBox(height: 100), 
+          const SizedBox(height: 100),
         ],
       ),
     );
+  }
+
+  static double _asDouble(dynamic value) {
+    if (value is num) {
+      return value.toDouble();
+    }
+    return double.tryParse(value.toString()) ?? 0;
+  }
+
+  static String _formatNumber(double value) {
+    return value == value.toInt() ? value.toInt().toString() : value.toString();
+  }
+
+  static String _formatDateLabel(dynamic value) {
+    if (value is! DateTime) {
+      return '';
+    }
+
+    final now = DateTime.now();
+    if (DateUtils.isSameDay(value, now)) {
+      return '今日';
+    }
+
+    final days = now.difference(value).inDays;
+    return '$days日前';
   }
 }

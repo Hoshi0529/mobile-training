@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
-// アプリ全体で共有する定番メニューのリスト
-// ValueNotifierを使うことで、データが更新されたときに自動で画面を再描画できます
+// アプリ全体で共有する定番メニューのリスト。
 final ValueNotifier<List<Map<String, dynamic>>> globalMenuItemsNotifier =
     ValueNotifier([
       {
@@ -29,3 +28,29 @@ final ValueNotifier<List<Map<String, dynamic>>> globalMenuItemsNotifier =
         'abv': 9.0,
       },
     ]);
+
+// アプリ全体で共有する飲酒記録のリスト。
+final ValueNotifier<List<Map<String, dynamic>>> globalDrinkRecordsNotifier =
+    ValueNotifier([]);
+
+void addDrinkRecord({
+  required String name,
+  required int volume,
+  required double abv,
+  IconData icon = Icons.local_drink_outlined,
+}) {
+  final newList = List<Map<String, dynamic>>.from(
+    globalDrinkRecordsNotifier.value,
+  );
+
+  newList.insert(0, {
+    'icon': icon,
+    'name': name,
+    'volume': volume,
+    'abv': abv,
+    'alcoholGrams': volume * abv / 100 * 0.8,
+    'recordedAt': DateTime.now(),
+  });
+
+  globalDrinkRecordsNotifier.value = newList;
+}
