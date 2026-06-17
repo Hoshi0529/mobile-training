@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'data/menu.dart';
@@ -5,6 +7,7 @@ import 'screens/add.dart';
 import 'screens/home.dart';
 import 'screens/record.dart';
 import 'screens/setting.dart';
+import 'services/rest_day.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -76,6 +79,25 @@ class _MainScreenState extends State<MainScreen> {
     RecordScreen(),
     SettingScreen(),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    globalAppSettingsNotifier.addListener(_syncRestDayNotification);
+    unawaited(_syncRestDayNotification());
+  }
+
+  @override
+  void dispose() {
+    globalAppSettingsNotifier.removeListener(_syncRestDayNotification);
+    super.dispose();
+  }
+
+  Future<void> _syncRestDayNotification() {
+    return RestDayNotificationService.instance.configure(
+      globalAppSettingsNotifier.value,
+    );
+  }
 
   void _onItemTapped(int index) {
     setState(() {

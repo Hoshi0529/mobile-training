@@ -1,4 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+
     <application
         android:label="sample"
         android:name="${applicationName}"
@@ -30,6 +34,17 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        <receiver
+            android:name=".RestDayNotificationReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.example.sample.REST_DAY_NOTIFICATION_CHECK" />
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.DATE_CHANGED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+            </intent-filter>
+        </receiver>
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and
