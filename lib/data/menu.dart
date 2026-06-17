@@ -2,7 +2,9 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:path/path.dart' as path;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sqflite/sqflite.dart';
 
 const _menuItemsKey = 'menuItems';
 const _drinkRecordsKey = 'drinkRecords';
@@ -12,6 +14,8 @@ class AppSettings {
   const AppSettings({
     required this.weightKg,
     required this.dailyGoalGrams,
+    required this.metabolismFactor,
+    required this.drinkCostYen,
     required this.restDays,
     required this.scheduledDrinkingDates,
     required this.reminderEnabled,
@@ -21,6 +25,8 @@ class AppSettings {
     return const AppSettings(
       weightKg: 60,
       dailyGoalGrams: 20,
+      metabolismFactor: 1,
+      drinkCostYen: 500,
       restDays: [false, true, true, false, false, false, false],
       scheduledDrinkingDates: <String>{},
       reminderEnabled: true,
@@ -45,6 +51,8 @@ class AppSettings {
     return AppSettings(
       weightKg: _asDouble(json['weightKg'], fallback: 60),
       dailyGoalGrams: _asDouble(json['dailyGoalGrams'], fallback: 20),
+      metabolismFactor: _asDouble(json['metabolismFactor'], fallback: 1),
+      drinkCostYen: _asDouble(json['drinkCostYen'], fallback: 500),
       restDays: normalizedRestDays,
       scheduledDrinkingDates: scheduledDates,
       reminderEnabled: json['reminderEnabled'] != false,
@@ -53,17 +61,21 @@ class AppSettings {
 
   final double weightKg;
   final double dailyGoalGrams;
+  final double metabolismFactor;
+  final double drinkCostYen;
   final List<bool> restDays;
   final Set<String> scheduledDrinkingDates;
   final bool reminderEnabled;
 
   double get metabolismGramsPerHour {
-    return (weightKg / 12).clamp(1.0, 12.0);
+    return (weightKg / 12 * metabolismFactor).clamp(1.0, 12.0);
   }
 
   AppSettings copyWith({
     double? weightKg,
     double? dailyGoalGrams,
+    double? metabolismFactor,
+    double? drinkCostYen,
     List<bool>? restDays,
     Set<String>? scheduledDrinkingDates,
     bool? reminderEnabled,
@@ -71,6 +83,8 @@ class AppSettings {
     return AppSettings(
       weightKg: weightKg ?? this.weightKg,
       dailyGoalGrams: dailyGoalGrams ?? this.dailyGoalGrams,
+      metabolismFactor: metabolismFactor ?? this.metabolismFactor,
+      drinkCostYen: drinkCostYen ?? this.drinkCostYen,
       restDays: List<bool>.from(restDays ?? this.restDays),
       scheduledDrinkingDates: Set<String>.from(
         scheduledDrinkingDates ?? this.scheduledDrinkingDates,
@@ -83,6 +97,8 @@ class AppSettings {
     return {
       'weightKg': weightKg,
       'dailyGoalGrams': dailyGoalGrams,
+      'metabolismFactor': metabolismFactor,
+      'drinkCostYen': drinkCostYen,
       'restDays': restDays,
       'scheduledDrinkingDates': scheduledDrinkingDates.toList()..sort(),
       'reminderEnabled': reminderEnabled,
@@ -100,10 +116,13 @@ final ValueNotifier<AppSettings> globalAppSettingsNotifier = ValueNotifier(
   AppSettings.defaults(),
 );
 
+final _appStateStore = _AppStateStore();
+
 Future<void> loadAppState() async {
+  await _appStateStore.init();
   final prefs = await SharedPreferences.getInstance();
 
-  final rawMenuItems = prefs.getString(_menuItemsKey);
+  final rawMenuItems = await _readStoredString(prefs, _menuItemsKey);
   if (rawMenuItems != null) {
     final decoded = jsonDecode(rawMenuItems);
     if (decoded is List) {
@@ -114,7 +133,7 @@ Future<void> loadAppState() async {
     }
   }
 
-  final rawDrinkRecords = prefs.getString(_drinkRecordsKey);
+  final rawDrinkRecords = await _readStoredString(prefs, _drinkRecordsKey);
   if (rawDrinkRecords != null) {
     final decoded = jsonDecode(rawDrinkRecords);
     if (decoded is List) {
@@ -125,7 +144,7 @@ Future<void> loadAppState() async {
     }
   }
 
-  final rawSettings = prefs.getString(_appSettingsKey);
+  final rawSettings = await _readStoredString(prefs, _appSettingsKey);
   if (rawSettings != null) {
     final decoded = jsonDecode(rawSettings);
     if (decoded is Map<String, dynamic>) {
@@ -144,6 +163,8 @@ void addDrinkRecord({
   required int volume,
   required double abv,
   IconData icon = Icons.local_drink_outlined,
+  DateTime? recordedAt,
+  String? memo,
 }) {
   final newList = List<Map<String, dynamic>>.from(
     globalDrinkRecordsNotifier.value,
@@ -155,7 +176,8 @@ void addDrinkRecord({
     'volume': volume,
     'abv': abv,
     'alcoholGrams': volume * abv / 100 * 0.8,
-    'recordedAt': DateTime.now(),
+    'recordedAt': recordedAt ?? DateTime.now(),
+    'memo': memo?.trim() ?? '',
   });
 
   globalDrinkRecordsNotifier.value = newList;
@@ -182,6 +204,26 @@ void updateDailyGoalGrams(double dailyGoalGrams) {
   }
   updateAppSettings(
     globalAppSettingsNotifier.value.copyWith(dailyGoalGrams: dailyGoalGrams),
+  );
+}
+
+void updateMetabolismFactor(double metabolismFactor) {
+  if (metabolismFactor <= 0) {
+    return;
+  }
+  updateAppSettings(
+    globalAppSettingsNotifier.value.copyWith(
+      metabolismFactor: metabolismFactor.clamp(0.5, 1.5).toDouble(),
+    ),
+  );
+}
+
+void updateDrinkCostYen(double drinkCostYen) {
+  if (drinkCostYen < 0) {
+    return;
+  }
+  updateAppSettings(
+    globalAppSettingsNotifier.value.copyWith(drinkCostYen: drinkCostYen),
   );
 }
 
@@ -242,27 +284,111 @@ int _weekdayToRestDayIndex(DateTime date) {
 }
 
 Future<void> _persistMenuItems() async {
-  final prefs = await SharedPreferences.getInstance();
   final encoded = jsonEncode(
     globalMenuItemsNotifier.value.map(_serializeDrinkItem).toList(),
   );
-  await prefs.setString(_menuItemsKey, encoded);
+  await _writeStoredString(_menuItemsKey, encoded);
 }
 
 Future<void> _persistDrinkRecords() async {
-  final prefs = await SharedPreferences.getInstance();
   final encoded = jsonEncode(
     globalDrinkRecordsNotifier.value.map(_serializeDrinkRecord).toList(),
   );
-  await prefs.setString(_drinkRecordsKey, encoded);
+  await _writeStoredString(_drinkRecordsKey, encoded);
 }
 
 Future<void> _persistAppSettings() async {
-  final prefs = await SharedPreferences.getInstance();
-  await prefs.setString(
+  await _writeStoredString(
     _appSettingsKey,
     jsonEncode(globalAppSettingsNotifier.value.toJson()),
   );
+}
+
+Future<String?> _readStoredString(SharedPreferences prefs, String key) async {
+  final dbValue = await _appStateStore.getString(key);
+  if (dbValue != null) {
+    return dbValue;
+  }
+
+  final prefsValue = prefs.getString(key);
+  if (prefsValue != null) {
+    unawaited(_appStateStore.setString(key, prefsValue));
+  }
+  return prefsValue;
+}
+
+Future<void> _writeStoredString(String key, String value) async {
+  await _appStateStore.setString(key, value);
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.setString(key, value);
+}
+
+class _AppStateStore {
+  Database? _db;
+
+  Future<void> init() async {
+    if (_db != null) {
+      return;
+    }
+
+    try {
+      final dbPath = await getDatabasesPath();
+      final dbFile = path.join(dbPath, 'alcohol_record.db');
+      _db = await openDatabase(
+        dbFile,
+        version: 1,
+        onCreate: (db, version) async {
+          await db.execute('''
+            CREATE TABLE app_state (
+              state_key TEXT PRIMARY KEY,
+              value_text TEXT NOT NULL
+            )
+          ''');
+        },
+      );
+    } catch (_) {
+      _db = null;
+    }
+  }
+
+  Future<String?> getString(String key) async {
+    final db = _db;
+    if (db == null) {
+      return null;
+    }
+
+    try {
+      final rows = await db.query(
+        'app_state',
+        columns: ['value_text'],
+        where: 'state_key = ?',
+        whereArgs: [key],
+        limit: 1,
+      );
+      if (rows.isEmpty) {
+        return null;
+      }
+      return rows.first['value_text']?.toString();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> setString(String key, String value) async {
+    final db = _db;
+    if (db == null) {
+      return;
+    }
+
+    try {
+      await db.insert('app_state', {
+        'state_key': key,
+        'value_text': value,
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
+    } catch (_) {
+      // SharedPreferences remains as a fallback if SQLite is unavailable.
+    }
+  }
 }
 
 List<Map<String, dynamic>> _defaultMenuItems() {
@@ -308,6 +434,7 @@ Map<String, dynamic> _serializeDrinkRecord(Map<String, dynamic> record) {
     ..._serializeDrinkItem(record),
     'alcoholGrams': record['alcoholGrams'],
     'recordedAt': (record['recordedAt'] as DateTime).toIso8601String(),
+    'memo': record['memo']?.toString() ?? '',
   };
 }
 
@@ -326,6 +453,7 @@ Map<String, dynamic> _deserializeDrinkRecord(Map<String, dynamic> record) {
     'alcoholGrams': _asDouble(record['alcoholGrams'], fallback: 0),
     'recordedAt':
         DateTime.tryParse(record['recordedAt'].toString()) ?? DateTime.now(),
+    'memo': record['memo']?.toString() ?? '',
   };
 }
 

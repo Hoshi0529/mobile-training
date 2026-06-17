@@ -15,14 +15,18 @@ class _AddScreenState extends State<AddScreen> {
   final _nameController = TextEditingController();
   final _volumeController = TextEditingController();
   final _abvController = TextEditingController();
+  final _memoController = TextEditingController();
 
   int _selectedTabIndex = 0;
+  DateTime _recordedAt = DateTime.now();
+  bool _recordedAtEdited = false;
 
   @override
   void dispose() {
     _nameController.dispose();
     _volumeController.dispose();
     _abvController.dispose();
+    _memoController.dispose();
     super.dispose();
   }
 
@@ -48,11 +52,50 @@ class _AddScreenState extends State<AddScreen> {
             child: Row(children: [_buildTab('定番', 0), _buildTab('手入力', 1)]),
           ),
           const SizedBox(height: 20),
+          _buildRecordedAtPicker(),
+          const SizedBox(height: 16),
+          _buildMemoField(),
+          const SizedBox(height: 16),
           Expanded(
             child: _selectedTabIndex == 0
                 ? _buildMenuGrid()
                 : _buildManualForm(),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMemoField() {
+    return TextField(
+      controller: _memoController,
+      maxLines: 2,
+      decoration: const InputDecoration(
+        hintText: '体調メモ（任意）',
+        prefixIcon: Icon(Icons.note_alt_outlined),
+      ),
+    );
+  }
+
+  Widget _buildRecordedAtPicker() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF9FAFB),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.schedule_outlined, color: Color(0xFF6B7280)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              '飲酒時刻 ${_formatDateTime(_effectiveRecordedAt())}',
+              style: const TextStyle(fontWeight: FontWeight.w800),
+            ),
+          ),
+          TextButton(onPressed: _pickRecordedAt, child: const Text('変更')),
         ],
       ),
     );
@@ -350,19 +393,98 @@ class _AddScreenState extends State<AddScreen> {
     required double abv,
     required IconData icon,
   }) {
-    addDrinkRecord(name: name, volume: volume, abv: abv, icon: icon);
+    final recordedAt = _effectiveRecordedAt();
+    addDrinkRecord(
+      name: name,
+      volume: volume,
+      abv: abv,
+      icon: icon,
+      recordedAt: recordedAt,
+      memo: _memoController.text,
+    );
 
+    final settings = globalAppSettingsNotifier.value;
+    final totalForDay = _totalAlcoholGramsForDate(
+      globalDrinkRecordsNotifier.value,
+      recordedAt,
+    );
+    final isOverGoal = totalForDay > settings.dailyGoalGrams;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('$name を記録しました'),
+        content: Text(
+          isOverGoal ? '$name を記録しました。目標上限を超えています。' : '$name を記録しました',
+        ),
         behavior: SnackBarBehavior.floating,
+        backgroundColor: isOverGoal ? const Color(0xFFB91C1C) : null,
       ),
     );
 
     Navigator.of(context).maybePop();
   }
 
+  Future<void> _pickRecordedAt() async {
+    final current = _effectiveRecordedAt();
+    final date = await showDatePicker(
+      context: context,
+      initialDate: current,
+      firstDate: DateTime(current.year - 3),
+      lastDate: DateTime.now(),
+    );
+    if (date == null || !mounted) {
+      return;
+    }
+
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(current),
+    );
+    if (time == null || !mounted) {
+      return;
+    }
+
+    setState(() {
+      _recordedAt = DateTime(
+        date.year,
+        date.month,
+        date.day,
+        time.hour,
+        time.minute,
+      );
+      _recordedAtEdited = true;
+    });
+  }
+
+  DateTime _effectiveRecordedAt() {
+    return _recordedAtEdited ? _recordedAt : DateTime.now();
+  }
+
+  double _totalAlcoholGramsForDate(
+    List<Map<String, dynamic>> records,
+    DateTime date,
+  ) {
+    return records.fold<double>(0, (sum, record) {
+      final recordedAt = record['recordedAt'];
+      if (recordedAt is! DateTime || !DateUtils.isSameDay(recordedAt, date)) {
+        return sum;
+      }
+
+      final value = record['alcoholGrams'];
+      if (value is num) {
+        return sum + value.toDouble();
+      }
+      return sum + (double.tryParse(value.toString()) ?? 0);
+    });
+  }
+
   String _formatNumber(double value) {
     return value == value.toInt() ? value.toInt().toString() : value.toString();
+  }
+
+  String _formatDateTime(DateTime value) {
+    final month = value.month.toString().padLeft(2, '0');
+    final day = value.day.toString().padLeft(2, '0');
+    final hour = value.hour.toString().padLeft(2, '0');
+    final minute = value.minute.toString().padLeft(2, '0');
+    return '$month/$day $hour:$minute';
   }
 }

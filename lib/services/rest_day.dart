@@ -14,7 +14,10 @@ class RestDayNotificationService {
   );
 
   Future<void> configure(AppSettings settings) async {
-    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
+    final supportedPlatform =
+        defaultTargetPlatform == TargetPlatform.android ||
+        defaultTargetPlatform == TargetPlatform.iOS;
+    if (kIsWeb || !supportedPlatform) {
       return;
     }
 

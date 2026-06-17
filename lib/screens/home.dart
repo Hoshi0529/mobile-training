@@ -1,13 +1,36 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
 import '../data/menu.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
   static const double _caloriesPerAlcoholGram = 8.5;
+  Timer? _refreshTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+      if (mounted) {
+        setState(() {});
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -28,6 +51,13 @@ class HomeScreen extends StatelessWidget {
               metabolismGramsPerHour,
             );
             final todayCalories = _totalCalories(todayRecords);
+            final todayAlcoholGrams = _totalAlcoholGrams(todayRecords);
+            final soberStreak = _soberStreak(records, DateTime.now());
+            final restDayStreak = _restDayStreak(
+              records,
+              settings,
+              DateTime.now(),
+            );
             final reminderCards = _buildReminderCards(settings);
 
             return SingleChildScrollView(
@@ -41,6 +71,18 @@ class HomeScreen extends StatelessWidget {
                     minutesUntilClear: minutesUntilClear,
                     bodyAlcohol: bodyAlcohol,
                     metabolismGramsPerHour: metabolismGramsPerHour,
+                  ),
+                  const SizedBox(height: 16),
+                  _buildGoalCard(
+                    todayAlcoholGrams: todayAlcoholGrams,
+                    dailyGoalGrams: settings.dailyGoalGrams,
+                  ),
+                  const SizedBox(height: 16),
+                  _buildStreakCard(
+                    soberStreak: soberStreak,
+                    restDayStreak: restDayStreak,
+                    drinkCostYen: settings.drinkCostYen,
+                    dailyGoalGrams: settings.dailyGoalGrams,
                   ),
                   const SizedBox(height: 24),
                   _buildTodayHeader(todayCalories),
@@ -244,6 +286,158 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
+  Widget _buildGoalCard({
+    required double todayAlcoholGrams,
+    required double dailyGoalGrams,
+  }) {
+    final progress = dailyGoalGrams <= 0
+        ? 0.0
+        : (todayAlcoholGrams / dailyGoalGrams).clamp(0.0, 1.0);
+    final isOverGoal = todayAlcoholGrams > dailyGoalGrams;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                _iconBubble(
+                  icon: Icons.track_changes_outlined,
+                  color: isOverGoal
+                      ? const Color(0xFFEF4444)
+                      : const Color(0xFF2563EB),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Text(
+                    '今日の許容量',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                  ),
+                ),
+                Text(
+                  '${todayAlcoholGrams.toStringAsFixed(1)} / ${_formatNumber(dailyGoalGrams)}g',
+                  style: TextStyle(
+                    color: isOverGoal
+                        ? const Color(0xFFEF4444)
+                        : const Color(0xFF2563EB),
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(999),
+              child: LinearProgressIndicator(
+                value: progress,
+                minHeight: 12,
+                color: isOverGoal
+                    ? const Color(0xFFEF4444)
+                    : const Color(0xFF2563EB),
+                backgroundColor: const Color(0xFFE5E7EB),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              isOverGoal ? '目標上限を超えています。今日はここで止めましょう。' : '目標上限内です。',
+              style: TextStyle(
+                color: isOverGoal
+                    ? const Color(0xFFB91C1C)
+                    : const Color(0xFF4B5563),
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStreakCard({
+    required int soberStreak,
+    required int restDayStreak,
+    required double drinkCostYen,
+    required double dailyGoalGrams,
+  }) {
+    final savedYen = (soberStreak * drinkCostYen).round();
+    final savedCalories =
+        (soberStreak * dailyGoalGrams * _caloriesPerAlcoholGram).round();
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                _iconBubble(
+                  icon: Icons.emoji_events_outlined,
+                  color: const Color(0xFF10B981),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Text(
+                    '継続バッジ',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(child: _buildMiniStat('未飲酒', '$soberStreak日')),
+                const SizedBox(width: 10),
+                Expanded(child: _buildMiniStat('休肝日', '$restDayStreak回')),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(child: _buildMiniStat('節約目安', '$savedYen円')),
+                const SizedBox(width: 10),
+                Expanded(child: _buildMiniStat('削減目安', '$savedCalories kcal')),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMiniStat(String label, String value) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF9FAFB),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              color: Color(0xFF6B7280),
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildTodayHeader(int todayCalories) {
     return Row(
       children: [
@@ -308,6 +502,7 @@ class HomeScreen extends StatelessWidget {
         final alcoholGrams = _asDouble(record['alcoholGrams']);
         final calories = _calories(alcoholGrams);
         final recordedAt = record['recordedAt'];
+        final memo = record['memo']?.toString() ?? '';
         final icon = record['icon'] is IconData
             ? record['icon'] as IconData
             : Icons.local_drink_outlined;
@@ -339,6 +534,17 @@ class HomeScreen extends StatelessWidget {
                           '${_formatTime(recordedAt)} ・ ${volume}ml ・ ${_formatNumber(abv)}%',
                           style: const TextStyle(color: Color(0xFF6B7280)),
                         ),
+                        if (memo.trim().isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            memo,
+                            style: const TextStyle(
+                              color: Color(0xFF4B5563),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -438,8 +644,62 @@ class HomeScreen extends StatelessWidget {
     });
   }
 
+  static double _totalAlcoholGrams(List<Map<String, dynamic>> records) {
+    return records.fold<double>(0, (sum, record) {
+      return sum + _asDouble(record['alcoholGrams']);
+    });
+  }
+
   static int _calories(double alcoholGrams) {
     return (alcoholGrams * _caloriesPerAlcoholGram).round();
+  }
+
+  static int _soberStreak(List<Map<String, dynamic>> records, DateTime today) {
+    var streak = 0;
+    var date = DateUtils.dateOnly(today);
+    for (var i = 0; i < 365; i++) {
+      if (_recordsForDate(records, date).isNotEmpty) {
+        break;
+      }
+      streak++;
+      date = date.subtract(const Duration(days: 1));
+    }
+    return streak;
+  }
+
+  static int _restDayStreak(
+    List<Map<String, dynamic>> records,
+    AppSettings settings,
+    DateTime today,
+  ) {
+    var streak = 0;
+    var foundRestDay = false;
+    var date = DateUtils.dateOnly(today);
+
+    for (var i = 0; i < 365; i++) {
+      if (isRestDay(date, settings)) {
+        foundRestDay = true;
+        if (_recordsForDate(records, date).isNotEmpty) {
+          break;
+        }
+        streak++;
+      } else if (foundRestDay && streak > 0) {
+        return streak;
+      }
+      date = date.subtract(const Duration(days: 1));
+    }
+
+    return streak;
+  }
+
+  static List<Map<String, dynamic>> _recordsForDate(
+    List<Map<String, dynamic>> records,
+    DateTime date,
+  ) {
+    return records.where((record) {
+      final recordedAt = record['recordedAt'];
+      return recordedAt is DateTime && DateUtils.isSameDay(recordedAt, date);
+    }).toList();
   }
 
   static double _asDouble(dynamic value) {

@@ -109,10 +109,14 @@ void main() {
     );
 
     await tester.enterText(find.byType(TextField).at(0), '72');
-    await tester.enterText(find.byType(TextField).at(1), '15');
+    await tester.enterText(find.byType(TextField).at(1), '0.8');
+    await tester.enterText(find.byType(TextField).at(2), '15');
+    await tester.enterText(find.byType(TextField).at(3), '650');
 
     expect(globalAppSettingsNotifier.value.weightKg, 72);
+    expect(globalAppSettingsNotifier.value.metabolismFactor, 0.8);
     expect(globalAppSettingsNotifier.value.dailyGoalGrams, 15);
+    expect(globalAppSettingsNotifier.value.drinkCostYen, 650);
 
     await tester.tap(find.text('日').first);
     await tester.pumpAndSettle();

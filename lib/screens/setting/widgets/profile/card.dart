@@ -4,36 +4,66 @@ import '../common/field.dart';
 
 class ProfileCard extends StatelessWidget {
   const ProfileCard({
-    required this.controller,
-    required this.onChanged,
+    required this.weightController,
+    required this.factorController,
+    required this.onWeightChanged,
+    required this.onFactorChanged,
     super.key,
   });
 
-  final TextEditingController controller;
-  final ValueChanged<String> onChanged;
+  final TextEditingController weightController;
+  final TextEditingController factorController;
+  final ValueChanged<String> onWeightChanged;
+  final ValueChanged<String> onFactorChanged;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            const Expanded(
-              child: Text(
-                '体重 (kg)',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
-              ),
-            ),
-            const SizedBox(width: 12),
-            SmallNumberField(controller: controller, onChanged: onChanged),
-          ],
+        _ProfileRow(
+          label: '体重 (kg)',
+          child: SmallNumberField(
+            controller: weightController,
+            onChanged: onWeightChanged,
+          ),
         ),
         const SizedBox(height: 14),
+        _ProfileRow(
+          label: '体質係数',
+          child: SmallNumberField(
+            controller: factorController,
+            onChanged: onFactorChanged,
+          ),
+        ),
+        const SizedBox(height: 10),
         const Text(
-          'アルコール分解時間の計算に使用します。',
+          '体質係数は 1.0 が標準です。低めにすると分解時間が長くなります。',
           style: TextStyle(color: Color(0xFF6B7280), fontSize: 12),
         ),
+      ],
+    );
+  }
+}
+
+class _ProfileRow extends StatelessWidget {
+  const _ProfileRow({required this.label, required this.child});
+
+  final String label;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            label,
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+          ),
+        ),
+        const SizedBox(width: 12),
+        child,
       ],
     );
   }

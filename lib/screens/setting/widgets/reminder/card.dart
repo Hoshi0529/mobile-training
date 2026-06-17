@@ -19,7 +19,7 @@ class ReminderCard extends StatelessWidget {
         style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
       ),
       subtitle: const Text(
-        '休肝日の0時から一日中、通知欄に表示します。',
+        '休肝日の0時に通知します。端末側の通知許可も必要です。',
         style: TextStyle(color: Color(0xFF6B7280), fontSize: 12),
       ),
       trailing: Switch(

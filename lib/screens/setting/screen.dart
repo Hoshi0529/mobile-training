@@ -24,6 +24,12 @@ class _SettingScreenState extends State<SettingScreen> {
   final TextEditingController _goalController = TextEditingController(
     text: '20',
   );
+  final TextEditingController _factorController = TextEditingController(
+    text: '1.0',
+  );
+  final TextEditingController _costController = TextEditingController(
+    text: '500',
+  );
 
   late List<bool> _restDays;
   late bool _reminderEnabled;
@@ -35,6 +41,8 @@ class _SettingScreenState extends State<SettingScreen> {
     final settings = globalAppSettingsNotifier.value;
     _weightController.text = _formatNumber(settings.weightKg);
     _goalController.text = _formatNumber(settings.dailyGoalGrams);
+    _factorController.text = settings.metabolismFactor.toStringAsFixed(1);
+    _costController.text = _formatNumber(settings.drinkCostYen);
     _restDays = List<bool>.from(settings.restDays);
     _reminderEnabled = settings.reminderEnabled;
     final now = DateTime.now();
@@ -45,6 +53,8 @@ class _SettingScreenState extends State<SettingScreen> {
   void dispose() {
     _weightController.dispose();
     _goalController.dispose();
+    _factorController.dispose();
+    _costController.dispose();
     super.dispose();
   }
 
@@ -63,11 +73,18 @@ class _SettingScreenState extends State<SettingScreen> {
           const SectionTitle(Icons.person_outline, 'プロフィール'),
           SettingCard(
             child: ProfileCard(
-              controller: _weightController,
-              onChanged: (value) {
+              weightController: _weightController,
+              factorController: _factorController,
+              onWeightChanged: (value) {
                 final weight = double.tryParse(value.trim());
                 if (weight != null) {
                   updateWeightKg(weight);
+                }
+              },
+              onFactorChanged: (value) {
+                final factor = double.tryParse(value.trim());
+                if (factor != null) {
+                  updateMetabolismFactor(factor);
                 }
               },
             ),
@@ -75,11 +92,18 @@ class _SettingScreenState extends State<SettingScreen> {
           const SectionTitle(Icons.track_changes_outlined, '目標設定'),
           SettingCard(
             child: GoalCard(
-              controller: _goalController,
-              onChanged: (value) {
+              goalController: _goalController,
+              costController: _costController,
+              onGoalChanged: (value) {
                 final goal = double.tryParse(value.trim());
                 if (goal != null) {
                   updateDailyGoalGrams(goal);
+                }
+              },
+              onCostChanged: (value) {
+                final cost = double.tryParse(value.trim());
+                if (cost != null) {
+                  updateDrinkCostYen(cost);
                 }
               },
             ),
