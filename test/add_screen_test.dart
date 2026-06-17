@@ -2,11 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sample/data/menu.dart';
 import 'package:sample/screens/add.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   final originalMenuItems = List<Map<String, dynamic>>.from(
     globalMenuItemsNotifier.value,
   );
+
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+    globalAppSettingsNotifier.value = AppSettings.defaults();
+  });
 
   tearDown(() {
     globalMenuItemsNotifier.value = List<Map<String, dynamic>>.from(

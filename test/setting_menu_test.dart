@@ -2,11 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sample/data/menu.dart';
 import 'package:sample/screens/setting.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   final originalMenuItems = List<Map<String, dynamic>>.from(
     globalMenuItemsNotifier.value,
   );
+
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+    globalAppSettingsNotifier.value = AppSettings.defaults();
+  });
 
   tearDown(() {
     globalMenuItemsNotifier.value = List<Map<String, dynamic>>.from(
@@ -28,9 +34,14 @@ void main() {
     await tester.tap(find.text('追加'));
     await tester.pumpAndSettle();
 
-    await tester.enterText(find.byType(TextField).at(2), 'ハイボール');
-    await tester.enterText(find.byType(TextField).at(3), '350');
-    await tester.enterText(find.byType(TextField).at(4), '7');
+    final dialogFields = find.descendant(
+      of: find.byType(Dialog),
+      matching: find.byType(TextFormField),
+    );
+
+    await tester.enterText(dialogFields.at(0), 'ハイボール');
+    await tester.enterText(dialogFields.at(1), '350');
+    await tester.enterText(dialogFields.at(2), '7');
 
     await tester.tap(find.text('保存'));
     await tester.pumpAndSettle();
@@ -83,5 +94,46 @@ void main() {
     expect(globalMenuItemsNotifier.value.single['name'], 'Edited');
     expect(globalMenuItemsNotifier.value.single['volume'], 500);
     expect(globalMenuItemsNotifier.value.single['abv'], 8.0);
+  });
+
+  testWidgets('updates settings values and scheduled drinking dates', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 720);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      const MaterialApp(home: Scaffold(body: SettingScreen())),
+    );
+
+    await tester.enterText(find.byType(TextField).at(0), '72');
+    await tester.enterText(find.byType(TextField).at(1), '15');
+
+    expect(globalAppSettingsNotifier.value.weightKg, 72);
+    expect(globalAppSettingsNotifier.value.dailyGoalGrams, 15);
+
+    await tester.tap(find.text('日').first);
+    await tester.pumpAndSettle();
+
+    expect(globalAppSettingsNotifier.value.restDays.first, isTrue);
+
+    await tester.ensureVisible(find.byType(Switch));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(Switch));
+    await tester.pumpAndSettle();
+
+    expect(globalAppSettingsNotifier.value.reminderEnabled, isFalse);
+
+    final todayText = DateTime.now().day.toString();
+    await tester.ensureVisible(find.text(todayText).last);
+    await tester.tap(find.text(todayText).last);
+    await tester.pumpAndSettle();
+
+    expect(
+      globalAppSettingsNotifier.value.scheduledDrinkingDates,
+      contains(formatDateKey(DateTime.now())),
+    );
   });
 }

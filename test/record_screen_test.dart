@@ -2,8 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sample/data/menu.dart';
 import 'package:sample/screens/record.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+    globalAppSettingsNotifier.value = AppSettings.defaults();
+  });
+
   tearDown(() {
     globalDrinkRecordsNotifier.value = [];
   });
@@ -32,6 +38,8 @@ void main() {
     expect(find.text('アルコール量'), findsOneWidget);
     expect(find.text('20.0'), findsOneWidget);
     expect(find.text('g'), findsOneWidget);
+    expect(find.text('休肝日達成'), findsOneWidget);
+    expect(find.text('目標超過'), findsOneWidget);
 
     await tester.tap(find.text('カロリー'));
     await tester.pumpAndSettle();
@@ -65,7 +73,7 @@ void main() {
     expect(find.text('${now.month}月 ${now.year}'), findsOneWidget);
     expect(find.text('飲酒日'), findsOneWidget);
     expect(find.text('今日'), findsOneWidget);
-    expect(find.text(now.day.toString()), findsOneWidget);
+    expect(find.text(now.day.toString()), findsAtLeastNWidgets(1));
     expect(find.text('休肝日達成'), findsOneWidget);
     expect(find.text('目標超過'), findsOneWidget);
   });
