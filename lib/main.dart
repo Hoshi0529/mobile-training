@@ -156,8 +156,8 @@ class _MainScreenState extends State<MainScreen> {
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.bar_chart_rounded),
-            selectedIcon: Icon(Icons.bar_chart_rounded),
-            label: 'データ',
+            selectedIcon: Icon(Icons.home_outlined),
+            label: 'ホーム',
           ),
           NavigationDestination(
             icon: Icon(Icons.calendar_month_outlined),
