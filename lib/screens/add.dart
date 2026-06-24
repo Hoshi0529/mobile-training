@@ -260,6 +260,9 @@ class _AddScreenState extends State<AddScreen> {
                         if (volume == null || volume <= 0) {
                           return '1以上';
                         }
+                        if (volume > 10000) {
+                          return '10000以下';
+                        }
                         return null;
                       },
                     ),
@@ -281,7 +284,10 @@ class _AddScreenState extends State<AddScreen> {
                       validator: (value) {
                         final abv = double.tryParse(value?.trim() ?? '');
                         if (abv == null || abv <= 0) {
-                          return '1以上';
+                          return '0より大きく';
+                        }
+                        if (abv > 100) {
+                          return '100以下';
                         }
                         return null;
                       },
@@ -427,7 +433,7 @@ class _AddScreenState extends State<AddScreen> {
     final date = await showDatePicker(
       context: context,
       initialDate: current,
-      firstDate: DateTime(current.year - 3),
+      firstDate: DateTime(current.year - 10),
       lastDate: DateTime.now(),
     );
     if (date == null || !mounted) {
@@ -442,14 +448,24 @@ class _AddScreenState extends State<AddScreen> {
       return;
     }
 
+    final selectedDateTime = DateTime(
+      date.year,
+      date.month,
+      date.day,
+      time.hour,
+      time.minute,
+    );
+    if (selectedDateTime.isAfter(DateTime.now())) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('未来の時刻は記録できません')));
+      }
+      return;
+    }
+
     setState(() {
-      _recordedAt = DateTime(
-        date.year,
-        date.month,
-        date.day,
-        time.hour,
-        time.minute,
-      );
+      _recordedAt = selectedDateTime;
       _recordedAtEdited = true;
     });
   }

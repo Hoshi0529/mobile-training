@@ -119,6 +119,9 @@ class _AddMenuDialogState extends State<AddMenuDialog> {
                               if (volume == null || volume <= 0) {
                                 return '1以上';
                               }
+                              if (volume > 10000) {
+                                return '10000以下';
+                              }
                               return null;
                             },
                           ),
@@ -140,7 +143,10 @@ class _AddMenuDialogState extends State<AddMenuDialog> {
                             validator: (value) {
                               final abv = double.tryParse((value ?? '').trim());
                               if (abv == null || abv <= 0) {
-                                return '1以上';
+                                return '0より大きく';
+                              }
+                              if (abv > 100) {
+                                return '100以下';
                               }
                               return null;
                             },

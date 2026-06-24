@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sample/data/menu.dart';
-import 'package:sample/screens/setting.dart';
+import 'package:alcohol_record/data/menu.dart';
+import 'package:alcohol_record/screens/setting.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {

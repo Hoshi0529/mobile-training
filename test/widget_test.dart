@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:sample/main.dart';
+import 'package:alcohol_record/main.dart';
 
 void main() {
   testWidgets('app shows the main shell copy', (tester) async {

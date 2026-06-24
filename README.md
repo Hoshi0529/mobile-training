@@ -1,16 +1,42 @@
-# sample
+# アルコールレコード
 
-A new Flutter project.
+飲酒量、純アルコール量、体調メモ、休肝日、飲酒予定日を端末内で管理するFlutterアプリです。
 
-## Getting Started
+## 主な機能
 
-This project is a starting point for a Flutter application.
+- 定番メニューまたは手入力による飲酒記録
+- 純アルコール量とアルコール由来カロリーの集計
+- 分解完了時間の概算表示
+- 週間・月間グラフとカレンダー
+- 過去記録の詳細表示、編集、削除
+- 1日の目標上限、体重、体質係数の設定
+- 休肝日と飲酒予定日の設定
+- Android・iOSの休肝日通知
+- SQLiteとSharedPreferencesによる端末内保存
 
-A few resources to get you started if this is your first Flutter project:
+## 安全上の注意
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+分解完了時間は入力値を基にした概算です。体質、体調、薬、食事などによる個人差を判定できません。表示時間だけで運転可否を判断せず、飲酒した日は運転しないでください。
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## 開発・確認
+
+```shell
+flutter pub get
+flutter analyze
+flutter test
+flutter run
+```
+
+AndroidデバッグAPK：
+
+```shell
+flutter build apk --debug
+```
+
+## リリース署名
+
+リポジトリには秘密鍵を含めません。Google Play等へ配布する場合は、Androidのリリース用キーストアを作成し、`android/key.properties.example`を`android/key.properties`へコピーして値を設定してください。設定済みの場合だけリリース署名が自動適用されます。デバッグ鍵での公開は禁止です。
+
+## データとプライバシー
+
+飲酒記録は端末内に保存され、外部サーバーへ送信しません。アプリ削除や端末故障に備えたバックアップ・移行機能は現時点ではありません。

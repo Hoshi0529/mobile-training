@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../data/menu.dart';
+import 'detail_sheet.dart';
 import 'summary.dart';
 import 'widgets/month/card.dart';
+import 'widgets/month/chart_card.dart';
 import 'widgets/period/switch.dart';
 import 'widgets/stats/row.dart';
 import 'widgets/week/card.dart';
@@ -41,7 +43,12 @@ class _RecordScreenState extends State<RecordScreen> {
                 : visibleMonthData.values.expand((item) => item);
             final scopeDates = _selectedPeriodIndex == 0
                 ? weeklyData.map((day) => day.date).toList()
-                : _monthDates(_visibleMonth);
+                : _monthDates(_visibleMonth)
+                      .where(
+                        (date) =>
+                            !date.isAfter(DateUtils.dateOnly(DateTime.now())),
+                      )
+                      .toList();
             final summary = _buildSummary(
               summaryRecords.toList(),
               scopeDates,
@@ -78,7 +85,7 @@ class _RecordScreenState extends State<RecordScreen> {
                         });
                       },
                     )
-                  else
+                  else ...[
                     MonthCard(
                       visibleMonth: _visibleMonth,
                       recordsByDay: visibleMonthData,
@@ -88,7 +95,22 @@ class _RecordScreenState extends State<RecordScreen> {
                           _visibleMonth = month;
                         });
                       },
+                      onDateTapped: (date) {
+                        showDayRecordsSheet(context, date);
+                      },
                     ),
+                    const SizedBox(height: 16),
+                    MonthChartCard(
+                      visibleMonth: _visibleMonth,
+                      recordsByDay: visibleMonthData,
+                      selectedMetricIndex: _selectedChartDataType,
+                      onMetricChanged: (index) {
+                        setState(() {
+                          _selectedChartDataType = index;
+                        });
+                      },
+                    ),
+                  ],
                   const SizedBox(height: 16),
                   StatsRow(summary: summary),
                 ],

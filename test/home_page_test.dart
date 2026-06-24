@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sample/data/menu.dart';
-import 'package:sample/screens/home.dart';
+import 'package:alcohol_record/data/menu.dart';
+import 'package:alcohol_record/screens/home.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -30,8 +30,9 @@ void main() {
       const MaterialApp(home: Scaffold(body: HomeScreen())),
     );
 
-    expect(find.text('運転可能目安まで'), findsOneWidget);
-    expect(find.text('現在の体内アルコール量'), findsOneWidget);
+    expect(find.text('分解完了の推定まで'), findsOneWidget);
+    expect(find.text('推定残存アルコール量'), findsOneWidget);
+    expect(find.textContaining('この表示だけで運転可否を判断せず'), findsOneWidget);
     expect(find.text('今日の記録'), findsOneWidget);
     expect(find.text('ビール（中ジョッキ）'), findsOneWidget);
     expect(find.text('20.0g'), findsOneWidget);

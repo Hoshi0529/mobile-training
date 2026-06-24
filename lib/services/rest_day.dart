@@ -10,7 +10,7 @@ class RestDayNotificationService {
       RestDayNotificationService._();
 
   static const MethodChannel _channel = MethodChannel(
-    'sample/rest_day_notification',
+    'alcohol_record/rest_day_notification',
   );
 
   Future<void> configure(AppSettings settings) async {

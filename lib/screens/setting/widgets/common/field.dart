@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 class SmallNumberField extends StatelessWidget {
   const SmallNumberField({required this.controller, this.onChanged, super.key});
@@ -13,7 +14,10 @@ class SmallNumberField extends StatelessWidget {
       height: 42,
       child: TextField(
         controller: controller,
-        keyboardType: TextInputType.number,
+        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        inputFormatters: [
+          FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
+        ],
         onChanged: onChanged,
         textAlign: TextAlign.center,
         style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),

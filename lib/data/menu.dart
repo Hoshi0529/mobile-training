@@ -19,21 +19,26 @@ class AppSettings {
     required this.restDays,
     required this.scheduledDrinkingDates,
     required this.reminderEnabled,
+    required this.trackingStartedAt,
   });
 
   factory AppSettings.defaults() {
-    return const AppSettings(
+    return AppSettings(
       weightKg: 60,
       dailyGoalGrams: 20,
       metabolismFactor: 1,
       drinkCostYen: 500,
-      restDays: [false, true, true, false, false, false, false],
-      scheduledDrinkingDates: <String>{},
+      restDays: const [false, true, true, false, false, false, false],
+      scheduledDrinkingDates: const <String>{},
       reminderEnabled: true,
+      trackingStartedAt: DateUtils.dateOnly(DateTime.now()),
     );
   }
 
-  factory AppSettings.fromJson(Map<String, dynamic> json) {
+  factory AppSettings.fromJson(
+    Map<String, dynamic> json, {
+    DateTime? trackingStartedAtFallback,
+  }) {
     final rawRestDays = json['restDays'];
     final restDays = rawRestDays is List
         ? rawRestDays.map((value) => value == true).toList()
@@ -56,6 +61,10 @@ class AppSettings {
       restDays: normalizedRestDays,
       scheduledDrinkingDates: scheduledDates,
       reminderEnabled: json['reminderEnabled'] != false,
+      trackingStartedAt:
+          DateTime.tryParse(json['trackingStartedAt']?.toString() ?? '') ??
+          trackingStartedAtFallback ??
+          DateUtils.dateOnly(DateTime.now()),
     );
   }
 
@@ -66,6 +75,7 @@ class AppSettings {
   final List<bool> restDays;
   final Set<String> scheduledDrinkingDates;
   final bool reminderEnabled;
+  final DateTime trackingStartedAt;
 
   double get metabolismGramsPerHour {
     return (weightKg / 12 * metabolismFactor).clamp(1.0, 12.0);
@@ -79,6 +89,7 @@ class AppSettings {
     List<bool>? restDays,
     Set<String>? scheduledDrinkingDates,
     bool? reminderEnabled,
+    DateTime? trackingStartedAt,
   }) {
     return AppSettings(
       weightKg: weightKg ?? this.weightKg,
@@ -90,6 +101,7 @@ class AppSettings {
         scheduledDrinkingDates ?? this.scheduledDrinkingDates,
       ),
       reminderEnabled: reminderEnabled ?? this.reminderEnabled,
+      trackingStartedAt: trackingStartedAt ?? this.trackingStartedAt,
     );
   }
 
@@ -102,6 +114,7 @@ class AppSettings {
       'restDays': restDays,
       'scheduledDrinkingDates': scheduledDrinkingDates.toList()..sort(),
       'reminderEnabled': reminderEnabled,
+      'trackingStartedAt': formatDateKey(trackingStartedAt),
     };
   }
 }
@@ -124,7 +137,7 @@ Future<void> loadAppState() async {
 
   final rawMenuItems = await _readStoredString(prefs, _menuItemsKey);
   if (rawMenuItems != null) {
-    final decoded = jsonDecode(rawMenuItems);
+    final decoded = _decodeJsonSafely(rawMenuItems);
     if (decoded is List) {
       globalMenuItemsNotifier.value = decoded
           .whereType<Map<String, dynamic>>()
@@ -135,7 +148,7 @@ Future<void> loadAppState() async {
 
   final rawDrinkRecords = await _readStoredString(prefs, _drinkRecordsKey);
   if (rawDrinkRecords != null) {
-    final decoded = jsonDecode(rawDrinkRecords);
+    final decoded = _decodeJsonSafely(rawDrinkRecords);
     if (decoded is List) {
       globalDrinkRecordsNotifier.value = decoded
           .whereType<Map<String, dynamic>>()
@@ -146,9 +159,23 @@ Future<void> loadAppState() async {
 
   final rawSettings = await _readStoredString(prefs, _appSettingsKey);
   if (rawSettings != null) {
-    final decoded = jsonDecode(rawSettings);
+    final decoded = _decodeJsonSafely(rawSettings);
     if (decoded is Map<String, dynamic>) {
-      globalAppSettingsNotifier.value = AppSettings.fromJson(decoded);
+      globalAppSettingsNotifier.value = AppSettings.fromJson(
+        decoded,
+        trackingStartedAtFallback: _earliestRecordDate(
+          globalDrinkRecordsNotifier.value,
+        ),
+      );
+    }
+  } else {
+    final earliestRecordDate = _earliestRecordDate(
+      globalDrinkRecordsNotifier.value,
+    );
+    if (earliestRecordDate != null) {
+      globalAppSettingsNotifier.value = globalAppSettingsNotifier.value
+          .copyWith(trackingStartedAt: earliestRecordDate);
+      unawaited(_persistAppSettings());
     }
   }
 }
@@ -184,13 +211,60 @@ void addDrinkRecord({
   unawaited(_persistDrinkRecords());
 }
 
+void updateDrinkRecord({
+  required Map<String, dynamic> originalRecord,
+  required String name,
+  required int volume,
+  required double abv,
+  required DateTime recordedAt,
+  required String memo,
+}) {
+  final records = List<Map<String, dynamic>>.from(
+    globalDrinkRecordsNotifier.value,
+  );
+  final index = records.indexWhere(
+    (record) => identical(record, originalRecord) || record == originalRecord,
+  );
+  if (index < 0) {
+    return;
+  }
+
+  records[index] = {
+    ...originalRecord,
+    'name': name.trim(),
+    'volume': volume,
+    'abv': abv,
+    'alcoholGrams': volume * abv / 100 * 0.8,
+    'recordedAt': recordedAt,
+    'memo': memo.trim(),
+  };
+  records.sort(
+    (left, right) => (right['recordedAt'] as DateTime).compareTo(
+      left['recordedAt'] as DateTime,
+    ),
+  );
+  globalDrinkRecordsNotifier.value = records;
+  unawaited(_persistDrinkRecords());
+}
+
+void deleteDrinkRecord(Map<String, dynamic> recordToDelete) {
+  final records = List<Map<String, dynamic>>.from(
+    globalDrinkRecordsNotifier.value,
+  );
+  records.removeWhere(
+    (record) => identical(record, recordToDelete) || record == recordToDelete,
+  );
+  globalDrinkRecordsNotifier.value = records;
+  unawaited(_persistDrinkRecords());
+}
+
 void updateAppSettings(AppSettings settings) {
   globalAppSettingsNotifier.value = settings;
   unawaited(_persistAppSettings());
 }
 
 void updateWeightKg(double weightKg) {
-  if (weightKg <= 0) {
+  if (weightKg <= 0 || weightKg > 500) {
     return;
   }
   updateAppSettings(
@@ -199,7 +273,7 @@ void updateWeightKg(double weightKg) {
 }
 
 void updateDailyGoalGrams(double dailyGoalGrams) {
-  if (dailyGoalGrams <= 0) {
+  if (dailyGoalGrams <= 0 || dailyGoalGrams > 500) {
     return;
   }
   updateAppSettings(
@@ -208,18 +282,18 @@ void updateDailyGoalGrams(double dailyGoalGrams) {
 }
 
 void updateMetabolismFactor(double metabolismFactor) {
-  if (metabolismFactor <= 0) {
+  if (metabolismFactor < 0.5 || metabolismFactor > 1.5) {
     return;
   }
   updateAppSettings(
     globalAppSettingsNotifier.value.copyWith(
-      metabolismFactor: metabolismFactor.clamp(0.5, 1.5).toDouble(),
+      metabolismFactor: metabolismFactor,
     ),
   );
 }
 
 void updateDrinkCostYen(double drinkCostYen) {
-  if (drinkCostYen < 0) {
+  if (drinkCostYen < 0 || drinkCostYen > 1000000) {
     return;
   }
   updateAppSettings(
@@ -302,6 +376,14 @@ Future<void> _persistAppSettings() async {
     _appSettingsKey,
     jsonEncode(globalAppSettingsNotifier.value.toJson()),
   );
+}
+
+Future<void> persistAppState() async {
+  await Future.wait([
+    _persistMenuItems(),
+    _persistDrinkRecords(),
+    _persistAppSettings(),
+  ]);
 }
 
 Future<String?> _readStoredString(SharedPreferences prefs, String key) async {
@@ -491,4 +573,27 @@ int _asInt(dynamic value, {required int fallback}) {
     return value.toInt();
   }
   return int.tryParse(value.toString()) ?? fallback;
+}
+
+DateTime? _earliestRecordDate(List<Map<String, dynamic>> records) {
+  DateTime? earliest;
+  for (final record in records) {
+    final recordedAt = record['recordedAt'];
+    if (recordedAt is! DateTime) {
+      continue;
+    }
+    final date = DateUtils.dateOnly(recordedAt);
+    if (earliest == null || date.isBefore(earliest)) {
+      earliest = date;
+    }
+  }
+  return earliest;
+}
+
+dynamic _decodeJsonSafely(String value) {
+  try {
+    return jsonDecode(value);
+  } on FormatException {
+    return null;
+  }
 }

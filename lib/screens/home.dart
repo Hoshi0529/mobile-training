@@ -1,9 +1,10 @@
 import 'dart:async';
-import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
 import '../data/menu.dart';
+import '../services/alcohol_calculator.dart';
+import 'record/detail_sheet.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -42,17 +43,16 @@ class _HomeScreenState extends State<HomeScreen> {
           builder: (context, records, child) {
             final todayRecords = _todayRecords(records);
             final metabolismGramsPerHour = settings.metabolismGramsPerHour;
-            final bodyAlcohol = _currentBodyAlcohol(
-              records,
-              metabolismGramsPerHour,
-            );
-            final minutesUntilClear = _minutesUntilClear(
-              bodyAlcohol,
-              metabolismGramsPerHour,
+            final alcoholEstimate = calculateAlcoholEstimate(
+              records: records,
+              metabolismGramsPerHour: metabolismGramsPerHour,
             );
             final todayCalories = _totalCalories(todayRecords);
             final todayAlcoholGrams = _totalAlcoholGrams(todayRecords);
-            final soberStreak = _soberStreak(records, DateTime.now());
+            final soberStreak = calculateSoberStreak(
+              records: records,
+              trackingStartedAt: settings.trackingStartedAt,
+            );
             final restDayStreak = _restDayStreak(
               records,
               settings,
@@ -68,8 +68,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ...reminderCards,
                   if (reminderCards.isNotEmpty) const SizedBox(height: 16),
                   _buildAlcoholStatusCard(
-                    minutesUntilClear: minutesUntilClear,
-                    bodyAlcohol: bodyAlcohol,
+                    estimate: alcoholEstimate,
                     metabolismGramsPerHour: metabolismGramsPerHour,
                   ),
                   const SizedBox(height: 16),
@@ -177,10 +176,10 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildAlcoholStatusCard({
-    required int minutesUntilClear,
-    required double bodyAlcohol,
+    required AlcoholEstimate estimate,
     required double metabolismGramsPerHour,
   }) {
+    final minutesUntilClear = estimate.minutesUntilClear;
     final hours = minutesUntilClear ~/ 60;
     final minutes = minutesUntilClear % 60;
 
@@ -199,7 +198,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 const SizedBox(width: 12),
                 const Expanded(
                   child: Text(
-                    '運転可能目安まで',
+                    '分解完了の推定まで',
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
                   ),
                 ),
@@ -254,7 +253,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    '現在の体内アルコール量',
+                    '推定残存アルコール量',
                     style: TextStyle(
                       color: Color(0xFF9A3412),
                       fontWeight: FontWeight.w800,
@@ -262,7 +261,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    '${bodyAlcohol.toStringAsFixed(1)} g',
+                    '${estimate.remainingGrams.toStringAsFixed(1)} g',
                     style: const TextStyle(
                       fontSize: 26,
                       fontWeight: FontWeight.w900,
@@ -277,7 +276,27 @@ class _HomeScreenState extends State<HomeScreen> {
                       fontWeight: FontWeight.w700,
                     ),
                   ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '推定完了時刻 ${_formatDateTime(estimate.clearAt)}',
+                    style: const TextStyle(
+                      color: Color(0xFF9A3412),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                 ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'これは入力値から算出した概算です。個人差や体調、薬、食事などで結果は変わります。'
+              'この表示だけで運転可否を判断せず、飲酒した日は運転しないでください。',
+              style: TextStyle(
+                color: Color(0xFFB91C1C),
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+                height: 1.5,
               ),
             ),
           ],
@@ -390,7 +409,7 @@ class _HomeScreenState extends State<HomeScreen> {
             const SizedBox(height: 16),
             Row(
               children: [
-                Expanded(child: _buildMiniStat('未飲酒', '$soberStreak日')),
+                Expanded(child: _buildMiniStat('未飲酒（記録上）', '$soberStreak日')),
                 const SizedBox(width: 10),
                 Expanded(child: _buildMiniStat('休肝日', '$restDayStreak回')),
               ],
@@ -512,60 +531,72 @@ class _HomeScreenState extends State<HomeScreen> {
             bottom: index == todayRecords.length - 1 ? 0 : 10,
           ),
           child: Card(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              child: Row(
-                children: [
-                  _iconBubble(icon: icon, color: const Color(0xFF2563EB)),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          name,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          '${_formatTime(recordedAt)} ・ ${volume}ml ・ ${_formatNumber(abv)}%',
-                          style: const TextStyle(color: Color(0xFF6B7280)),
-                        ),
-                        if (memo.trim().isNotEmpty) ...[
-                          const SizedBox(height: 4),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(20),
+              onTap: () {
+                final date = recordedAt is DateTime
+                    ? recordedAt
+                    : DateTime.now();
+                showDayRecordsSheet(context, date);
+              },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
+                ),
+                child: Row(
+                  children: [
+                    _iconBubble(icon: icon, color: const Color(0xFF2563EB)),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
                           Text(
-                            memo,
+                            name,
                             style: const TextStyle(
-                              color: Color(0xFF4B5563),
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
                             ),
                           ),
+                          const SizedBox(height: 6),
+                          Text(
+                            '${_formatTime(recordedAt)} ・ ${volume}ml ・ ${_formatNumber(abv)}%',
+                            style: const TextStyle(color: Color(0xFF6B7280)),
+                          ),
+                          if (memo.trim().isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              memo,
+                              style: const TextStyle(
+                                color: Color(0xFF4B5563),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
                         ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        _buildBadge(
+                          '${alcoholGrams.toStringAsFixed(1)}g',
+                          const Color(0xFF2563EB),
+                          const Color(0xFFEFF6FF),
+                        ),
+                        const SizedBox(height: 6),
+                        _buildBadge(
+                          '$calories kcal',
+                          const Color(0xFFEA580C),
+                          const Color(0xFFFFF7ED),
+                        ),
                       ],
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      _buildBadge(
-                        '${alcoholGrams.toStringAsFixed(1)}g',
-                        const Color(0xFF2563EB),
-                        const Color(0xFFEFF6FF),
-                      ),
-                      const SizedBox(height: 6),
-                      _buildBadge(
-                        '$calories kcal',
-                        const Color(0xFFEA580C),
-                        const Color(0xFFFFF7ED),
-                      ),
-                    ],
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -610,34 +641,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }).toList();
   }
 
-  static double _currentBodyAlcohol(
-    List<Map<String, dynamic>> records,
-    double metabolismGramsPerHour,
-  ) {
-    final now = DateTime.now();
-    return records.fold<double>(0, (sum, record) {
-      final recordedAt = record['recordedAt'];
-      if (recordedAt is! DateTime) {
-        return sum;
-      }
-
-      final alcoholGrams = _asDouble(record['alcoholGrams']);
-      final elapsedHours = now.difference(recordedAt).inMinutes / 60;
-      final remaining = alcoholGrams - (elapsedHours * metabolismGramsPerHour);
-      return sum + math.max(remaining, 0);
-    });
-  }
-
-  static int _minutesUntilClear(
-    double bodyAlcohol,
-    double metabolismGramsPerHour,
-  ) {
-    if (bodyAlcohol <= 0) {
-      return 0;
-    }
-    return (bodyAlcohol / metabolismGramsPerHour * 60).ceil();
-  }
-
   static int _totalCalories(List<Map<String, dynamic>> records) {
     return records.fold<int>(0, (sum, record) {
       return sum + _calories(_asDouble(record['alcoholGrams']));
@@ -654,37 +657,21 @@ class _HomeScreenState extends State<HomeScreen> {
     return (alcoholGrams * _caloriesPerAlcoholGram).round();
   }
 
-  static int _soberStreak(List<Map<String, dynamic>> records, DateTime today) {
-    var streak = 0;
-    var date = DateUtils.dateOnly(today);
-    for (var i = 0; i < 365; i++) {
-      if (_recordsForDate(records, date).isNotEmpty) {
-        break;
-      }
-      streak++;
-      date = date.subtract(const Duration(days: 1));
-    }
-    return streak;
-  }
-
   static int _restDayStreak(
     List<Map<String, dynamic>> records,
     AppSettings settings,
     DateTime today,
   ) {
     var streak = 0;
-    var foundRestDay = false;
-    var date = DateUtils.dateOnly(today);
+    final trackingStartedAt = DateUtils.dateOnly(settings.trackingStartedAt);
+    var date = DateUtils.dateOnly(today).subtract(const Duration(days: 1));
 
-    for (var i = 0; i < 365; i++) {
+    while (!date.isBefore(trackingStartedAt)) {
       if (isRestDay(date, settings)) {
-        foundRestDay = true;
         if (_recordsForDate(records, date).isNotEmpty) {
           break;
         }
         streak++;
-      } else if (foundRestDay && streak > 0) {
-        return streak;
       }
       date = date.subtract(const Duration(days: 1));
     }
@@ -721,5 +708,13 @@ class _HomeScreenState extends State<HomeScreen> {
     final hour = value.hour.toString().padLeft(2, '0');
     final minute = value.minute.toString().padLeft(2, '0');
     return '$hour:$minute';
+  }
+
+  static String _formatDateTime(DateTime value) {
+    final month = value.month.toString().padLeft(2, '0');
+    final day = value.day.toString().padLeft(2, '0');
+    final hour = value.hour.toString().padLeft(2, '0');
+    final minute = value.minute.toString().padLeft(2, '0');
+    return '$month/$day $hour:$minute';
   }
 }

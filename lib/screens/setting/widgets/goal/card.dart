@@ -38,7 +38,8 @@ class GoalCard extends StatelessWidget {
         ),
         const SizedBox(height: 10),
         const Text(
-          '休肝日や未飲酒日の節約目安に使います。',
+          '目標上限は500g以下で入力してください。'
+          '金額は休肝日や未飲酒日の節約目安に使います。',
           style: TextStyle(color: Color(0xFF6B7280), fontSize: 12),
         ),
       ],

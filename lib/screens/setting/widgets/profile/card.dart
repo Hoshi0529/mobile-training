@@ -38,7 +38,8 @@ class ProfileCard extends StatelessWidget {
         ),
         const SizedBox(height: 10),
         const Text(
-          '体質係数は 1.0 が標準です。低めにすると分解時間が長くなります。',
+          '体重は500kg以下、体質係数は0.5〜1.5で入力してください。'
+          '1.0が標準で、低めにすると分解時間が長くなります。',
           style: TextStyle(color: Color(0xFF6B7280), fontSize: 12),
         ),
       ],

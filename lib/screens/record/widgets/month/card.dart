@@ -9,6 +9,7 @@ class MonthCard extends StatelessWidget {
     required this.recordsByDay,
     required this.scheduledDates,
     required this.onMonthChanged,
+    required this.onDateTapped,
     super.key,
   });
 
@@ -16,6 +17,7 @@ class MonthCard extends StatelessWidget {
   final Map<DateTime, List<Map<String, dynamic>>> recordsByDay;
   final Set<String> scheduledDates;
   final ValueChanged<DateTime> onMonthChanged;
+  final ValueChanged<DateTime> onDateTapped;
 
   @override
   Widget build(BuildContext context) {
@@ -101,6 +103,7 @@ class MonthCard extends StatelessWidget {
                   hasRecord: hasRecord,
                   isToday: isToday,
                   isScheduled: isScheduled,
+                  onTap: () => onDateTapped(date),
                 );
               },
             ),

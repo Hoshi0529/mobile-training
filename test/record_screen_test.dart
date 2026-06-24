@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sample/data/menu.dart';
-import 'package:sample/screens/record.dart';
+import 'package:alcohol_record/data/menu.dart';
+import 'package:alcohol_record/screens/record.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -74,7 +74,50 @@ void main() {
     expect(find.text('飲酒日'), findsOneWidget);
     expect(find.text('今日'), findsOneWidget);
     expect(find.text(now.day.toString()), findsAtLeastNWidgets(1));
+    expect(find.text('月間推移'), findsOneWidget);
     expect(find.text('休肝日達成'), findsOneWidget);
     expect(find.text('目標超過'), findsOneWidget);
+  });
+
+  testWidgets('opens a day detail and deletes a past record', (tester) async {
+    final now = DateTime.now();
+    globalDrinkRecordsNotifier.value = [
+      {
+        'icon': Icons.sports_bar_outlined,
+        'name': '削除対象',
+        'volume': 350,
+        'abv': 5.0,
+        'alcoholGrams': 14.0,
+        'recordedAt': now,
+        'memo': '少し眠い',
+      },
+    ];
+
+    await tester.pumpWidget(
+      const MaterialApp(home: Scaffold(body: RecordScreen())),
+    );
+    await tester.tap(find.text('月間'));
+    await tester.pumpAndSettle();
+    final dayFinder = find.text(now.day.toString()).first;
+    await tester.ensureVisible(dayFinder);
+    await tester.pumpAndSettle();
+    await tester.tap(dayFinder);
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('${now.year}年${now.month}月${now.day}日の記録'),
+      findsOneWidget,
+    );
+    expect(find.text('削除対象'), findsOneWidget);
+    expect(find.text('少し眠い'), findsOneWidget);
+
+    await tester.tap(find.byType(PopupMenuButton<String>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('削除'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, '削除'));
+    await tester.pumpAndSettle();
+
+    expect(globalDrinkRecordsNotifier.value, isEmpty);
   });
 }

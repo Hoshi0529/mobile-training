@@ -4,7 +4,7 @@ import UserNotifications
 
 @main
 @objc class AppDelegate: FlutterAppDelegate {
-  private let restDayChannelName = "sample/rest_day_notification"
+  private let restDayChannelName = "alcohol_record/rest_day_notification"
   private let restDayEnabledKey = "rest_day_notification_enabled"
   private let restDaysKey = "rest_day_notification_days"
   private let lastImmediateKey = "rest_day_notification_last_immediate"
