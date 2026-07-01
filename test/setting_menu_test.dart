@@ -130,14 +130,17 @@ void main() {
 
     expect(globalAppSettingsNotifier.value.reminderEnabled, isFalse);
 
-    final todayText = DateTime.now().day.toString();
-    await tester.ensureVisible(find.text(todayText).last);
-    await tester.tap(find.text(todayText).last);
+    final today = DateUtils.dateOnly(DateTime.now());
+    final todayCell = find.byKey(
+      ValueKey('schedule-date-${formatDateKey(today)}'),
+    );
+    await tester.ensureVisible(todayCell);
+    await tester.tap(todayCell);
     await tester.pumpAndSettle();
 
     expect(
       globalAppSettingsNotifier.value.scheduledDrinkingDates,
-      contains(formatDateKey(DateTime.now())),
+      contains(formatDateKey(today)),
     );
   });
 }

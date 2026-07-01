@@ -88,10 +88,12 @@ class ScheduleCalendar extends StatelessWidget {
           itemBuilder: (context, index) {
             final date = cells[index];
             final inVisibleMonth = date.month == visibleMonth.month;
-            final isScheduled = scheduledDates.contains(formatDateKey(date));
+            final dateKey = formatDateKey(date);
+            final isScheduled = scheduledDates.contains(dateKey);
             final isToday = DateUtils.isSameDay(date, DateTime.now());
 
             return InkWell(
+              key: ValueKey('schedule-date-$dateKey'),
               borderRadius: BorderRadius.circular(999),
               onTap: () => onDateTapped(date),
               child: Container(
